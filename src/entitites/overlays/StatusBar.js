@@ -209,14 +209,19 @@ export class StatusBar {
 
 	drawNames(context) {
 		// Draw fighter names as text (supports LOU and any future character)
-		context.font = '8px "Press Start 2P", monospace';
+		context.font = 'bold 9px "Press Start 2P", monospace';
+		context.lineWidth = 2.5;
+		context.lineJoin = 'round';
+		context.strokeStyle = '#1a2a6a';
 		context.fillStyle = '#ffffff';
 		context.textAlign = 'left';
 		const name0 = (gameState.fighters[0]?.id || 'P1').toUpperCase();
 		const name1 = (gameState.fighters[1]?.id || 'P2').toUpperCase();
-		context.fillText(name0, 32, 40);
+		context.strokeText(name0, 32, 41);
+		context.fillText(name0, 32, 41);
 		context.textAlign = 'right';
-		context.fillText(name1, 350, 40);
+		context.strokeText(name1, 350, 41);
+		context.fillText(name1, 350, 41);
 		context.textAlign = 'left';
 	}
 

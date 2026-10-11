@@ -1,126 +1,67 @@
-# Maltese Fighters by Louison
+# Maltese Fighters
 
-A small **2D fighting-game experiment** for kids and beginners — inspired by classic Street Fighter, set against a real photo of **Valletta / Grand Harbour (Malta)**.
+A browser fighting game set on the Grand Harbour quay in Valletta. Pure HTML5 canvas + ES modules:
+**no build step, no dependencies** - it runs as-is on GitHub Pages.
 
-This project is mainly for **learning and fun**: trying sprites, a simple AI opponent, character select, and a local web game. It is **not** a polished commercial game.
+## The fighters
 
----
+| Fighter | Who | Special-move subtitles |
+|---|---|---|
+| **LOU** | The young striker - drawn from the reference artwork (afro, red headband, black/red kit, striped socks, fingerless gloves) | Pastizz Attack / Ricotta Bomb / Kinnie Blast |
+| **GANNI** | *il-Pastizzier* - flour-dusted baker, flat cap, big moustache | Pastizz-Power / Fresh From The Oven / Extra Ricotta |
+| **KARMENU** | *il-Kondutturi* - vintage bus driver, aviators, "the bus is late" | Bus Is Late / No Change Given / Full Horn |
 
-## What’s inside
+Every special move is a shout of **"MELA!"** (synthesised zap + the browser's speech voice) and throws a
+glowing Maltese-cross *mela* orb. Light / medium / heavy punch = slow / medium / fast orb.
+It is all affectionate: the people of Malta are the heroes here.
 
-| Feature | Description |
-|--------|-------------|
-| **Characters** | Ryu, Ken, and **LOU** (pixel soccer fighter) |
-| **Stage** | Real Malta harbour background + ground platform |
-| **Modes** | 1 player vs CPU (P2 is always AI) |
-| **Select screen** | Choose who is Player 1 and who is the CPU |
-| **Moves** | Walk, jump, crouch, punches, kicks, specials (where supported) |
-| **Audio** | Theme music + hit / attack sounds |
-
-Engine and classic sprites are adapted from the open-source project  
-[Mayank-Jain-1/StreetFighter](https://github.com/Mayank-Jain-1/StreetFighter).  
-LOU uses a custom pixel atlas; the stage uses a Malta photo.
-
----
-
-## How to run (Linux / Mac / Windows)
-
-You need a simple local web server (opening `index.html` as a file often breaks image/sound loading).
+## Play locally
 
 ```bash
-# 1. Unzip
-unzip maltese-fighter-II.zip
-cd maltese-fighter
-
-# 2. Start a local server
-python3 -m http.server 8080
+python3 -m http.server 8080      # any static server works
+# open http://localhost:8080
 ```
+(ES modules do not load from `file://`, so use a server.)
 
-Then open in your browser:
+## Publish on GitHub Pages
 
-**http://localhost:8080**
+1. Push this folder's contents to a repo (`index.html` must be at the repo root).
+2. *Settings -> Pages -> Deploy from a branch -> `main` / `(root)`*.
+3. Open `https://<you>.github.io/<repo>/`.
 
-Stop the server with `Ctrl+C` in the terminal.
+All paths are relative and every file name is lower-case/exact-case, so it also works from a sub-path.
+`.nojekyll` is included.
 
-> **Tip:** If the music does not start, click once on the title screen (browsers block autoplay until you interact).
+## Controls
 
----
+| Key | Action |
+|-----|--------|
+| A / D | Left / Right |
+| W / S | Jump / Crouch |
+| Q / E / R | Light / Medium / Heavy Punch |
+| F / V / G | Light / Medium / Heavy Kick |
+| S, then S+D, then D, then a Punch | **MELA!** |
 
-## How to play
+Select screen: **A/D** change P1, **Z/C** change the CPU opponent, **Enter** fights. Player 2 is a CPU.
+Add `?debug` to the URL to show the FPS counter.
 
-### Title screen
-- Click anywhere → character select  
+## How it is built
 
-### Character select
-| Keys | Action |
-|------|--------|
-| **A / D** | Change Player 1 |
-| **Z / C** | Change Player 2 (CPU) |
-| **Enter** or **Space** | Start fight |
+* `src/` - game engine (scenes, fighter state machine, collision, AI).
+  `MalteseFighter.js` holds the shared moveset; `Lou.js`, `Ganni.js`, `Karmenu.js` only provide art + voice + orb.
+* The canvas renders at 3x (1146x672) so the hi-res sprites stay crisp; game logic still runs at 382x224.
+* `tools/` - Python generators for the art (optional - the generated PNG/JS files are committed):
 
-### In battle (Player 1)
-
-| Keys | Action |
-|------|--------|
-| **A / D** | Walk left / right |
-| **W** | Jump |
-| **S** | Crouch |
-| **Q / E / R** | Light / Medium / Heavy punch |
-| **F / V / G** | Light / Medium / Heavy kick |
-
-Player 2 is controlled by a simple CPU AI.
-
----
-
-## Project layout (for curious kids / parents)
-
-```
-maltese-fighter/
-├── index.html          # Page that loads the game
-├── README.md           # This file
-├── public/
-│   ├── images/         # Sprites, portraits, stage photo
-│   └── sounds/         # Music and sound effects
-└── src/
-    ├── scenes/         # Title, select, battle screens
-    ├── entitites/      # Fighters (Ryu, Ken, Lou), stage, HUD
-    ├── engine/         # Input, camera, sounds, AI
-    └── constants/      # Game numbers and control IDs
-```
-
----
-
-## Notes for parents & teachers
-
-- This is an **experimentation / educational** project: code and art are mixed from open sources and custom assets.
-- Best played on a computer with a keyboard (not ideal on pure touch phones).
-- Content is cartoon fighting (no realistic violence); still supervise younger children if needed.
-- Works offline once the folder is downloaded (only needs `python3` or any static file server).
-
----
-
-## Known limitations (honest list)
-
-- LOU’s animations are mapped from a custom atlas; some moves are simpler than Ryu/Ken.
-- CPU AI is basic (approach + attack).
-- One stage only (Malta harbour).
-- Designed for local play in a browser, not as an installable app store game.
-
----
+  ```bash
+  pip install numpy opencv-python pillow
+  python3 tools/make_fighters.py        # sprite sheets + portraits (all 78 frames x 3 fighters)
+  python3 tools/make_mela.py            # the MELA orb
+  ```
+  Lou's head is cut straight out of `tools/reference_lou.png`; the bodies are painted around it.
+  Edit poses in `tools/lib/poses.py`, costumes in `tools/make_fighters.py`, faces in `tools/lib/heads.py`.
 
 ## Credits
 
-- **Engine / Ryu & Ken sprites:** [Mayank-Jain-1/StreetFighter](https://github.com/Mayank-Jain-1/StreetFighter)
-- **LOU character concept:** custom pixel soccer fighter atlas  
-- **Stage:** photograph of Valletta / Grand Harbour, Malta  
-- **Title:** Maltese Fighters by Louison  
-
----
-
-## License / use
-
-Use freely for **learning, school projects, and family fun**.  
-Respect the licenses of the original Street Fighter engine repo and any third-party art if you republish or share widely.
-
-Have fun experimenting!
-
+Engine adapted from [Mayank-Jain-1/StreetFighter](https://github.com/Mayank-Jain-1/StreetFighter).
+The HUD graphics and the sound effects/music in `public/` come from that project. If you plan a public
+release, check their licensing or swap them for your own.

@@ -82,16 +82,16 @@ export const FrameDelay = {
 };
 
 export const FighterId = {
-	KEN: 'Ken',
-	RYU: 'Ryu',
 	LOU: 'Lou',
+	GANNI: 'Ganni',
+	KARMENU: 'Karmenu',
 };
 
 export const PushBox = {
-	IDLE: [-16, -80, 32, 78],
-	JUMP: [-16, -91, 32, 66],
-	BEND: [-16, -58, 32, 58],
-	CROUCH: [-16, -50, 32, 50],
+	IDLE: [-20, -80, 40, 78],
+	JUMP: [-20, -91, 40, 66],
+	BEND: [-20, -58, 40, 58],
+	CROUCH: [-20, -50, 40, 50],
 };
 
 export const FighterHurtArea = {

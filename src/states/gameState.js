@@ -3,8 +3,8 @@ import { createDefaultFighterState } from './fighterState.js';
 
 export var gameState = {
 	fighters: [
-		createDefaultFighterState(FighterId.RYU),
 		createDefaultFighterState(FighterId.LOU),
+		createDefaultFighterState(FighterId.GANNI),
 	],
 };
 
@@ -13,8 +13,8 @@ export const resetGameState = () => {
 	const ids = gameState.fighters.map(f => f.id);
 	gameState = {
 		fighters: [
-			createDefaultFighterState(ids[0] || FighterId.RYU),
-			createDefaultFighterState(ids[1] || FighterId.LOU),
+			createDefaultFighterState(ids[0] || FighterId.LOU),
+			createDefaultFighterState(ids[1] || FighterId.GANNI),
 		],
 	};
 };

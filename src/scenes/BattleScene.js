@@ -13,17 +13,16 @@ import {
 import { FRAME_TIME, GAME_SPEED } from '../constants/game.js';
 import { Camera } from '../engine/Camera.js';
 import { EntityList } from '../engine/EntityList.js';
-import { Ken, Ryu, Lou } from '../entitites/fighters/index.js';
+import { Lou, Ganni, Karmenu } from '../entitites/fighters/index.js';
 import {
 	HeavyHitSplash,
 	LightHitSplash,
 	MediumHitSplash,
 	Shadow,
 } from '../entitites/fighters/shared/index.js';
-import { Fireball } from '../entitites/fighters/special/Fireball.js';
 import { FpsCounter } from '../entitites/overlays/FpsCounter.js';
 import { StatusBar } from '../entitites/overlays/StatusBar.js';
-import { KenStage } from '../entitites/stage/KenStage.js';
+import { ValletaStage } from '../entitites/stage/ValletaStage.js';
 import { gameState, resetGameState } from '../states/gameState.js';
 import { StartScene } from './StartScene.js';
 import { SimpleAI } from '../engine/SimpleAI.js';
@@ -41,11 +40,11 @@ export class BattleScene {
 
 	constructor(changeScene) {
 		this.changeScene = changeScene;
-		this.stage = new KenStage();
+		this.stage = new ValletaStage();
 		this.entities = new EntityList();
 		this.overlays = [
 			new StatusBar(this.fighters, this.onTimeEnd),
-			new FpsCounter(),
+			...(new URLSearchParams(window.location.search).has('debug') ? [new FpsCounter()] : []),
 		];
 		// resetGameState(); // disabled – selection from SelectScene must persist
 		this.startRound();
@@ -53,14 +52,14 @@ export class BattleScene {
 
 	getFighterClass = (id) => {
 		switch (id) {
-			case FighterId.KEN:
-				return Ken;
 			case FighterId.LOU:
 				return Lou;
-			case FighterId.RYU:
-				return Ryu;
+			case FighterId.GANNI:
+				return Ganni;
+			case FighterId.KARMENU:
+				return Karmenu;
 			default:
-				return new Error('Invalid Fighter Id');
+				throw new Error(`Invalid Fighter Id: ${id}`);
 		}
 	};
 

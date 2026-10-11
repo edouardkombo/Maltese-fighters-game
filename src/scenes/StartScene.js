@@ -64,16 +64,18 @@ export class StartScene {
 
 			drawLogo = (context) => {
 		if (!this.logoImg || !this.logoImg.complete) return;
+		context.imageSmoothingEnabled = true;
 		// Draw the Maltese Fighters logo (Street-Fighter style)
-		const scale = 0.85;
-		const w = this.logoImg.width * scale;
-		const h = this.logoImg.height * scale;
+		const scale = 1.2;
+		const w = (this.logoImg.naturalWidth / 3) * scale; // logo.png is stored at 3x
+		const h = (this.logoImg.naturalHeight / 3) * scale;
 		const x = (SCENE_WIDTH - w) / 2;
 		const y = 8;
 		if (this.logoFlash) {
 			context.globalAlpha = 0.7;
 		}
 		context.drawImage(this.logoImg, x, y, w, h);
+		context.imageSmoothingEnabled = false;
 		context.globalAlpha = 1;
 	};
 

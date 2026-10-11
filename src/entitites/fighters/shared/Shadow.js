@@ -1,3 +1,4 @@
+import { resetTransform } from '../../../utils/context.js';
 import { STAGE_FLOOR } from '../../../constants/Stage.js';
 
 export class Shadow {
@@ -46,6 +47,6 @@ export class Shadow {
 			Math.floor(height * scaleY)
 		);
 		context.globalAlpha = 1;
-		context.setTransform(1, 0, 0, 1, 0, 0);
+		resetTransform(context);
 	};
 }

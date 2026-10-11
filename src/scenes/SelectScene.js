@@ -5,14 +5,14 @@ import { createDefaultFighterState } from '../states/fighterState.js';
 import { BattleScene } from './BattleScene.js';
 
 const CHOICES = [
-	{ id: FighterId.RYU, label: 'RYU', portrait: 'RyuPortrait', bg: '#6490c8' },
-	{ id: FighterId.KEN, label: 'KEN', portrait: 'KenPortrait', bg: '#c86432' },
-	{ id: FighterId.LOU, label: 'LOU', portrait: 'LouPortrait', bg: '#288040' },
+	{ id: FighterId.LOU, label: 'LOU', tag: 'The Young Striker', portrait: 'LouPortrait', bg: '#2c5fa0' },
+	{ id: FighterId.GANNI, label: 'GANNI', tag: 'il-Pastizzier', portrait: 'GanniPortrait', bg: '#a8402e' },
+	{ id: FighterId.KARMENU, label: 'KARMENU', tag: 'il-Kondutturi', portrait: 'KarmenuPortrait', bg: '#b07a1c' },
 ];
 
 export class SelectScene {
 	p1Index = 0;
-	p2Index = 2;
+	p2Index = 1;
 	selected = false;
 	flash = 0;
 
@@ -62,7 +62,10 @@ export class SelectScene {
 		context.fillRect(x, y, size, size);
 		const img = document.getElementById(choice.portrait);
 		if (img && img.complete && img.naturalWidth > 0) {
+			context.imageSmoothingEnabled = true;
+			context.imageSmoothingQuality = 'high';
 			context.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, x, y, size, size);
+			context.imageSmoothingEnabled = false;
 		} else {
 			context.fillStyle = '#fff';
 			context.font = 'bold 20px monospace';
@@ -91,10 +94,10 @@ export class SelectScene {
 
 		// P1
 		context.fillStyle = '#1a1a3a';
-		context.fillRect(25, 65, 150, 110);
+		context.fillRect(25, 65, 150, 120);
 		context.strokeStyle = '#00ff88';
 		context.lineWidth = 2;
-		context.strokeRect(25, 65, 150, 110);
+		context.strokeRect(25, 65, 150, 120);
 		context.fillStyle = '#00ff88';
 		context.font = '9px monospace';
 		context.fillText('PLAYER 1', 100, 78);
@@ -103,15 +106,17 @@ export class SelectScene {
 		context.font = 'bold 14px monospace';
 		context.fillText(CHOICES[this.p1Index].label, 100, 158);
 		context.font = '7px monospace';
+		context.fillStyle = '#ffcc00';
+		context.fillText(CHOICES[this.p1Index].tag, 100, 166);
 		context.fillStyle = '#888';
-		context.fillText('A / D change', 100, 170);
+		context.fillText('A / D change', 100, 180);
 
 		// P2
 		context.fillStyle = '#3a1a1a';
-		context.fillRect(205, 65, 150, 110);
+		context.fillRect(205, 65, 150, 120);
 		context.strokeStyle = '#ff6688';
 		context.lineWidth = 2;
-		context.strokeRect(205, 65, 150, 110);
+		context.strokeRect(205, 65, 150, 120);
 		context.fillStyle = '#ff6688';
 		context.font = '9px monospace';
 		context.fillText('PLAYER 2 (CPU)', 280, 78);
@@ -120,13 +125,15 @@ export class SelectScene {
 		context.font = 'bold 14px monospace';
 		context.fillText(CHOICES[this.p2Index].label, 280, 158);
 		context.font = '7px monospace';
+		context.fillStyle = '#ffcc00';
+		context.fillText(CHOICES[this.p2Index].tag, 280, 166);
 		context.fillStyle = '#888';
-		context.fillText('Z / C change', 280, 170);
+		context.fillText('Z / C change', 280, 180);
 
 		if (Math.floor(this.flash * 3) % 2 === 0) {
 			context.fillStyle = '#ffcc00';
 			context.font = '10px monospace';
-			context.fillText('PRESS ENTER TO FIGHT', SCENE_WIDTH / 2, 200);
+			context.fillText('PRESS ENTER TO FIGHT', SCENE_WIDTH / 2, 204);
 		}
 	}
 }

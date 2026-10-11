@@ -1,36 +1,31 @@
-*{
+* {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-body{
+html, body {
+  height: 100%;
   background: #000;
+  overflow: hidden;
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
-html::-webkit-scrollbar {
-  display: none;
-}
-
-/* Hide scrollbar for IE, Edge and Firefox */
-html {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
-}
-
-main{
+main {
   height: 100vh;
   width: 100vw;
-}
-canvas{
-  width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  image-rendering: crisp-edges;
-  image-rendering: pixelated;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-img{
+canvas {
+  /* keep the 382:224 game ratio, as large as the window allows */
+  width: min(100vw, calc(100vh * 382 / 224));
+  height: auto;
+  aspect-ratio: 382 / 224;
+  image-rendering: auto;
+}
+
+img {
   display: none;
 }

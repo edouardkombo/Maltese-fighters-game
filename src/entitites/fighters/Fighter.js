@@ -1,3 +1,4 @@
+import { resetTransform } from '../../utils/context.js';
 import * as control from '../../engine/InputHandler.js';
 import {
 	SCENE_WIDTH,
@@ -37,7 +38,6 @@ import { playSound, stopSound } from '../../engine/SoundHandler.js';
 import { ControlHistory } from '../../engine/ControlHistory.js';
 
 // [Done] TODO Convert hurt: [[], [], []] to {head:[], body:[], legs:[],}
-// [FIXED]: handleHadoukenInit was being called in Fighter Idle.init TODO BUG: find what makes the hadouken sound call out of noWhere - happens when hitting and after atleast once the Hadouken is thrown
 
 // [Found not fixed] !!TODO One of the fighters randomly stops registering hits - Happens because illegal hurtState - from jumping to hurtHeadBody- jugaad by changing attackStruck in handleIdle
 
@@ -927,23 +927,27 @@ export class Fighter {
 		const frameKey = this.animations[this.currentState][this.animationFrame][0];
 		const [[[x, y, width, height], [originX, originY]]] =
 			this.frames.get(frameKey);
+		const k = this.spriteScale || 1; // sheet pixels per game pixel
 
 		context.scale(this.direction, 1);
+		context.imageSmoothingEnabled = k > 1;
+		context.imageSmoothingQuality = 'high';
 
 		context.drawImage(
 			this.image,
-			x - this.hurtShake,
+			x - this.hurtShake * k,
 			y,
 			width,
 			height,
 			Math.floor((this.position.x - camera.position.x) * this.direction) -
-				originX,
-			Math.floor(this.position.y - camera.position.y) - originY,
-			width,
-			height
+				originX / k,
+			Math.floor(this.position.y - camera.position.y) - originY / k,
+			width / k,
+			height / k
 		);
 
-		context.setTransform(1, 0, 0, 1, 0, 0);
+		context.imageSmoothingEnabled = false;
+		resetTransform(context);
 		DRAW_DEBUG && DEBUG_drawCollisionInfo(this, context, camera);
 	};
 }

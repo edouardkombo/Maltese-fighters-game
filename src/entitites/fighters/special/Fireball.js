@@ -1,3 +1,4 @@
+import { resetTransform } from '../../../utils/context.js';
 import { SCENE_WIDTH, STAGE_WIDTH } from '../../../constants/Stage.js';
 import { DRAW_DEBUG } from '../../../constants/battle.js';
 import { FighterAttackType } from '../../../constants/fighter.js';
@@ -14,90 +15,14 @@ import {
 import { drawDebugBox } from '../../../utils/fighterDebug.js';
 
 export class Fireball {
-	image = document.getElementById('KenImage');
+	image = null;
+	spriteScale = 1;
 
 	animationFrame = 0;
 	animationTimer = 0;
 
-	frames = new Map([
-		[
-			'hadouken-fireball-1',
-			[
-				[
-					[400, 2756, 43, 32],
-					[25, 16],
-				],
-				[-15, -13, 30, 24],
-				[-28, -20, 56, 38],
-			],
-		],
-		[
-			'hadouken-fireball-2',
-			[
-				[
-					[460, 2761, 56, 28],
-					[37, 14],
-				],
-				[-15, -13, 30, 24],
-				[-28, -20, 56, 38],
-			],
-		],
-		[
-			'hadouken-fireball-3',
-			[
-				[
-					[0, 0, 0, 0],
-					[0, 0],
-				],
-				[-15, -13, 30, 24],
-				[-28, -20, 56, 38],
-			],
-		],
-		[
-			'hadouken-collide-1',
-			[
-				[
-					[543, 2767, 26, 20],
-					[13, 10],
-				],
-				[0, 0, 0, 0],
-			],
-		],
-		[
-			'hadouken-collide-2',
-			[
-				[
-					[590, 2766, 15, 25],
-					[9, 13],
-				],
-				[0, 0, 0, 0],
-			],
-		],
-		[
-			'hadouken-collide-3',
-			[
-				[
-					[625, 2764, 28, 28],
-					[26, 14],
-				],
-				[0, 0, 0, 0],
-			],
-		],
-	]);
-
-	animations = {
-		[FireballState.ACTIVE]: [
-			['hadouken-fireball-1', 5],
-			['hadouken-fireball-3', 2],
-			['hadouken-fireball-2', 5],
-			['hadouken-fireball-3', 1],
-		],
-		[FireballState.COLLIDED]: [
-			['hadouken-collide-1', 13],
-			['hadouken-collide-2', 3],
-			['hadouken-collide-3', 7],
-		],
-	};
+	frames = new Map();
+	animations = { [FireballState.ACTIVE]: [], [FireballState.COLLIDED]: [] };
 
 	currentState = FireballState.ACTIVE;
 
@@ -255,7 +180,10 @@ export class Fireball {
 		const [[[x, y, width, height], [originX, originY]]] =
 			this.frames.get(frameKey);
 
+		const k = this.spriteScale || 1;
 		context.scale(this.direction, 1);
+		context.imageSmoothingEnabled = k > 1;
+		context.imageSmoothingQuality = 'high';
 		context.drawImage(
 			this.image,
 			x,
@@ -263,13 +191,14 @@ export class Fireball {
 			width,
 			height,
 			Math.floor(this.position.x - camera.position.x) * this.direction -
-				originX,
-			Math.floor(this.position.y - camera.position.y) - originY,
-			width,
-			height
+				originX / k,
+			Math.floor(this.position.y - camera.position.y) - originY / k,
+			width / k,
+			height / k
 		);
+		context.imageSmoothingEnabled = false;
 
-		context.setTransform(1, 0, 0, 1, 0, 0);
+		resetTransform(context);
 	};
 
 	draw = (context, camera) => {
