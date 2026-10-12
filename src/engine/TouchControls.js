@@ -21,6 +21,7 @@ const K = {
 	pastizzi: KB[Control.SPECIAL_PASTIZZI],
 	uwejja: KB[Control.SPECIAL_UWEJJA],
 	ricotta: KB[Control.SPECIAL_RICOTTA],
+	plane: KB[Control.SPECIAL_PLANE],
 };
 
 const el = (tag, cls, html = '') => {
@@ -32,7 +33,7 @@ const el = (tag, cls, html = '') => {
 
 /**
  * On-screen controller: 8-way D-pad (slide your thumb for diagonals), 3 punches, 3 kicks and the
- * four one-tap super powers (MELA / PASTIZZI / UWEJJA / RICOTTA) with their cooldowns.
+ * five one-tap super powers (MELA / PASTIZZI / UWEJJA / RICOTTA / ✈ GO BACK TO YOUR COUNTRY) with their cooldowns.
  * Built once, shown only during fights, and only on touch devices (or with ?touch in the URL).
  */
 class TouchControlsImpl {
@@ -63,7 +64,7 @@ class TouchControlsImpl {
 		const right = el('div', 'tc-right-hand');
 		const specials = el('div', 'tc-specials');
 		for (const kind of SPECIAL_ORDER) {
-			const b = el('button', `tc-btn tc-sp tc-sp-${kind}`, `<span>${SPECIALS[kind].label.replace('!', '')}</span>`);
+			const b = el('button', `tc-btn tc-sp tc-sp-${kind}`, `<span>${SPECIALS[kind].icon || SPECIALS[kind].label.replace('!', '')}</span>`);
 			b.type = 'button';
 			b.setAttribute('aria-label', SPECIALS[kind].label);
 			this.bindButton(b, K[kind]);

@@ -3,10 +3,64 @@ import { SPECIALS, SPECIAL_ORDER } from '../constants/specials.js';
 
 export const FONT = '"Arial Black", Impact, "Segoe UI", sans-serif';
 
+export const GAME_TITLE = 'PASTIZZIS FIGHTERS';
+
+/** The game logo, drawn in code: golden flaming title + a pastizz between the words. */
+export const drawTitleLogo = (context, cx, y, size = 30, t = 0) => {
+	context.save();
+	context.textAlign = 'center';
+	context.textBaseline = 'alphabetic';
+	context.lineJoin = 'round';
+	const lines = [['PASTIZZIS', y], ['FIGHTERS', y + size * 0.95]];
+	for (const [text, yy] of lines) {
+		context.font = `900 ${size}px ${FONT}`;
+		// fiery glow
+		context.shadowColor = 'rgba(255,90,0,.9)';
+		context.shadowBlur = size * 0.35 + Math.sin(t * 5) * 2;
+		context.lineWidth = size / 4.5;
+		context.strokeStyle = '#5a0a08';
+		context.strokeText(text, cx, yy);
+		context.shadowBlur = 0;
+		const g = context.createLinearGradient(0, yy - size * 0.8, 0, yy);
+		g.addColorStop(0, '#fff6b0');
+		g.addColorStop(0.45, '#ffc21a');
+		g.addColorStop(1, '#e8561c');
+		context.fillStyle = g;
+		context.fillText(text, cx, yy);
+	}
+	// a little pastizz badge between the two lines
+	const px = cx + context.measureText('FIGHTERS').width / 2 + size * 0.55;
+	const py = y + size * 0.55;
+	context.translate(px, py);
+	context.rotate(Math.sin(t * 2) * 0.15);
+	const s = size / 22;
+	context.scale(s, s);
+	const pg = context.createLinearGradient(0, -7, 0, 7);
+	pg.addColorStop(0, '#ffd77a');
+	pg.addColorStop(1, '#b86a1e');
+	context.fillStyle = pg;
+	context.strokeStyle = '#5a2a08';
+	context.lineWidth = 1;
+	context.beginPath();
+	context.moveTo(-10, 0);
+	context.quadraticCurveTo(-4, -8, 0, -7.5);
+	context.quadraticCurveTo(4, -8, 10, 0);
+	context.quadraticCurveTo(4, 8, 0, 7.5);
+	context.quadraticCurveTo(-4, 8, -10, 0);
+	context.fill();
+	context.stroke();
+	context.fillStyle = '#fffdf2';
+	context.beginPath();
+	context.ellipse(0, -6.5, 3.2, 1.4, 0, 0, Math.PI * 2);
+	context.fill();
+	context.restore();
+};
+
 export const FIGHTER_INFO = {
 	Lou: { label: 'LOU', tag: 'The Young Striker', portrait: 'LouPortrait', color: '#2c5fa0', taunt: 'MELA! LET\'S PLAY!' },
 	Ganni: { label: 'GANNI', tag: 'il-Pastizzier', portrait: 'GanniPortrait', color: '#a8402e', taunt: 'MELA! HOT PASTIZZI, HOT FISTS!' },
 	Karmenu: { label: 'KARMENU', tag: 'il-Kondutturi', portrait: 'KarmenuPortrait', color: '#b07a1c', taunt: 'MELA! THE BUS WON\'T WAIT!' },
+	Ichi: { label: 'ICHI', tag: 'The Fire-Fox Spirit', portrait: 'IchiPortrait', color: '#9c2a0a', taunt: 'FEEL THE SPIRIT FIRE!' },
 };
 
 export const outlinedText = (context, text, x, y, size, fill = '#fff', stroke = '#12122a', align = 'center', weight = 900) => {
@@ -88,7 +142,7 @@ export const drawBackdrop = (context, t = 0) => {
 
 /** Controls + the four super powers, for the title screen and the versus screen. */
 export const drawMoveList = (context, touch, x, y, compact = false) => {
-	const gap = compact ? 11 : 13;
+	const gap = compact ? 10 : 12;
 	const basics = touch
 		? [
 				['D-PAD', 'move / jump / crouch'],
@@ -124,13 +178,16 @@ export const drawMoveList = (context, touch, x, y, compact = false) => {
 			context.fillStyle = '#ffffff';
 			context.fillText(s.key, sx, yy);
 		}
-		context.font = `900 8px ${FONT}`;
+		const label = touch && s.icon ? ` ${s.label}` : s.label;
+		context.font = `900 ${label.length > 12 ? 5.5 : label.length > 9 ? 6.5 : 8}px ${FONT}`;
 		context.fillStyle = s.color;
-		context.fillText(s.label, sx + (touch ? 0 : 10), yy);
+		context.fillText(label, sx + (touch ? 0 : 10), yy);
+		const labelEnd = sx + (touch ? 0 : 10) + context.measureText(label).width + 4;
 		context.font = '700 6.5px system-ui, sans-serif';
 		context.fillStyle = '#dfe6ff';
-		context.fillText(touch ? s.short : s.motion, sx + 69, yy);
-		if (!touch) {
+		// a long name pushes the rest of its row to the right (and drops the short description)
+		context.fillText(touch ? s.short : s.motion, Math.max(sx + 69, labelEnd), yy);
+		if (!touch && labelEnd <= sx + 69) {
 			context.fillStyle = '#8c98cc';
 			context.fillText(s.short, sx + 127, yy);
 		}
@@ -144,10 +201,11 @@ export const drawPortrait =(context, id, x, y, size, { dim = 0, border = '#fff',
 	context.save();
 	context.fillStyle = bg || info.color;
 	context.fillRect(x, y, size, size);
-	if (img && img.complete && img.naturalWidth) {
+	const ready = img && (img instanceof HTMLCanvasElement || (img.complete && img.naturalWidth));
+	if (ready) {
 		context.imageSmoothingEnabled = true;
 		context.imageSmoothingQuality = 'high';
-		context.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, x, y, size, size);
+		context.drawImage(img, 0, 0, img.naturalWidth || img.width, img.naturalHeight || img.height, x, y, size, size);
 	}
 	if (dim > 0) {
 		context.fillStyle = `rgba(0,0,0,${dim})`;

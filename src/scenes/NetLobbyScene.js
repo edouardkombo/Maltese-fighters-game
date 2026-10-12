@@ -172,7 +172,7 @@ export class NetLobbyScene {
 		} else if (id === 'share') {
 			if (navigator.share) {
 				navigator
-					.share({ title: 'Maltese Fighters', text: 'Fight me in Maltese Fighters! Mela!', url: Net.inviteLink() })
+					.share({ title: 'Pastizzis Fighters', text: 'Fight me in Pastizzis Fighters! Mela!', url: Net.inviteLink() })
 					.catch(() => {});
 			} else {
 				this.setToast((await copyText(Net.code)) ? `ROOM CODE ${Net.code} COPIED` : 'COPY FAILED');

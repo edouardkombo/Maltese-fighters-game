@@ -9,6 +9,7 @@ const SUPER_CONTROL = {
 	[SpecialKind.PASTIZZI]: Control.SPECIAL_PASTIZZI,
 	[SpecialKind.UWEJJA]: Control.SPECIAL_UWEJJA,
 	[SpecialKind.RICOTTA]: Control.SPECIAL_RICOTTA,
+	[SpecialKind.PLANE]: Control.SPECIAL_PLANE,
 };
 
 /**
@@ -91,6 +92,8 @@ export class SimpleAI {
 		// 0. low on health and safe at range: eat a ricotta
 		const myHp = gameState.fighters[this.fighter.playerId]?.hitPoints ?? HEALTH_MAX_HIT_POINTS;
 		if (myHp < HEALTH_MAX_HIT_POINTS * 0.4 && dist > 120 && r < c.special * 2 && this.trySuper(SpecialKind.RICOTTA)) return;
+		// the plane: rare, from mid / long range, stronger CPUs use it more
+		if (dist > 90 && r < c.special * 0.35 && this.trySuper(SpecialKind.PLANE)) return;
 		// 1. punish jumps with a heavy punch (anti-air) - or pastizzi if they jump from far
 		if (AIRBORNE.has(oppState) && dist >= 95 && r < c.special && this.trySuper(SpecialKind.PASTIZZI)) return;
 		if (AIRBORNE.has(oppState) && dist < 95 && r < c.antiAir) {

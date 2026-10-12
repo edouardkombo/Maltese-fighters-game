@@ -886,6 +886,13 @@ export class Fighter {
 	};
 
 	draw = (context, camera) => {
+		if (this.drawBody) {
+			// fighters drawn in code instead of from a sprite sheet (Ichi)
+			this.drawBody(context, camera);
+			resetTransform(context);
+			DRAW_DEBUG && DEBUG_drawCollisionInfo(this, context, camera);
+			return;
+		}
 		const frameKey = this.animations[this.currentState][this.animationFrame][0];
 		const [[[x, y, width, height], [originX, originY]]] =
 			this.frames.get(frameKey);

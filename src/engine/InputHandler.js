@@ -236,6 +236,7 @@ const SPECIAL_CONTROLS = [
 	[Control.SPECIAL_PASTIZZI, 'pastizzi'],
 	[Control.SPECIAL_UWEJJA, 'uwejja'],
 	[Control.SPECIAL_RICOTTA, 'ricotta'],
+	[Control.SPECIAL_PLANE, 'plane'],
 ];
 
 /** The one-touch special pressed this frame ('mela' | 'pastizzi' | 'uwejja' | 'ricotta'), or null. */

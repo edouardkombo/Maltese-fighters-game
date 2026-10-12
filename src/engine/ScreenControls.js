@@ -20,6 +20,15 @@ export const toggleFullscreen = () => {
 		.catch(() => {});
 };
 
+let pauseHandler = null;
+let pauseButton = null;
+
+/** Show the ❚❚ button (fn = what it does) or hide it (null). */
+export const setPauseHandler = (fn) => {
+	pauseHandler = fn;
+	if (pauseButton) pauseButton.hidden = !fn;
+};
+
 /**
  * Always-visible corner buttons: fullscreen (also the F key / double-click on the game) and
  * sound on/off (also the M key).
@@ -59,6 +68,21 @@ export const installScreenControls = () => {
 		bar.appendChild(fs);
 		doc.querySelector('canvas')?.addEventListener('dblclick', toggleFullscreen);
 	}
+
+	// pause (only shown in single-player fights, see setPauseHandler)
+	const pause = doc.createElement('button');
+	pause.type = 'button';
+	pause.className = 'screen-btn';
+	pause.textContent = '❚❚';
+	pause.title = 'Pause (Esc)';
+	pause.setAttribute('aria-label', 'Pause');
+	pause.hidden = true;
+	pause.addEventListener('click', (e) => {
+		e.stopPropagation();
+		pauseHandler?.();
+	});
+	bar.prepend(pause);
+	pauseButton = pause;
 
 	// keep the buttons from starting the game / clicking through to the canvas
 	bar.addEventListener('pointerdown', (e) => e.stopPropagation());

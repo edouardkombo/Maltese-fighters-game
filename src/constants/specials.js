@@ -1,7 +1,7 @@
 import { FighterState } from './fighter.js';
 
 /**
- * The four Maltese super powers. Each one has its own effect, its own cooldown (ms of game time)
+ * The five Maltese super powers. Each one has its own effect, its own cooldown (ms of game time)
  * and can be fired either with a one-touch button (keyboard Q/W/E/R, the touch buttons, gamepad
  * L2/R2/L3/R3) or with the classic motion input shown in `motion`.
  */
@@ -10,6 +10,7 @@ export const SpecialKind = {
 	PASTIZZI: 'pastizzi',
 	UWEJJA: 'uwejja',
 	RICOTTA: 'ricotta',
+	PLANE: 'plane',
 };
 
 export const SPECIALS = {
@@ -51,9 +52,21 @@ export const SPECIALS = {
 		power: 'Eat a ricotta pastizz: heals 25 HP (long cooldown)',
 		heal: 25,
 	},
+	// the plane: the strongest hit, also on the classic "double quarter-circle" combo
+	[SpecialKind.PLANE]: {
+		label: 'GO BACK TO YOUR COUNTRY!',
+		cooldown: 12000,
+		color: '#ff6a6a',
+		key: 'T',
+		icon: '✈',
+		short: 'huge plane hit',
+		motion: '↓↘→ ×2 + PUNCH',
+		power: 'Throws a plane at the opponent: the biggest hit in the game, long cooldown',
+		damage: 38,
+	},
 };
 
-export const SPECIAL_ORDER = [SpecialKind.MELA, SpecialKind.PASTIZZI, SpecialKind.UWEJJA, SpecialKind.RICOTTA];
+export const SPECIAL_ORDER = [SpecialKind.MELA, SpecialKind.PASTIZZI, SpecialKind.UWEJJA, SpecialKind.RICOTTA, SpecialKind.PLANE];
 
 /** Which special a fighter state belongs to. */
 export const specialOfState = (state) => {
@@ -68,6 +81,8 @@ export const specialOfState = (state) => {
 			return SpecialKind.UWEJJA;
 		case FighterState.SPECIAL_RICOTTA:
 			return SpecialKind.RICOTTA;
+		case FighterState.SPECIAL_PLANE:
+			return SpecialKind.PLANE;
 		default:
 			return null;
 	}
@@ -79,4 +94,5 @@ export const stateOfSpecial = {
 	[SpecialKind.PASTIZZI]: FighterState.SPECIAL_PASTIZZI,
 	[SpecialKind.UWEJJA]: FighterState.SPECIAL_UWEJJA,
 	[SpecialKind.RICOTTA]: FighterState.SPECIAL_RICOTTA,
+	[SpecialKind.PLANE]: FighterState.SPECIAL_PLANE,
 };

@@ -9,25 +9,20 @@ import {
 	PushBox,
 } from '../../constants/fighter.js';
 import { HEALTH_MAX_HIT_POINTS } from '../../constants/battle.js';
+import { SCENE_WIDTH } from '../../constants/Stage.js';
 import { SPECIALS, SpecialKind, specialOfState, stateOfSpecial } from '../../constants/specials.js';
-import { Audio, shout } from '../../engine/Audio.js';
+import { Audio } from '../../engine/Audio.js';
+import { Voice } from '../../engine/Voice.js';
 import * as control from '../../engine/InputHandler.js';
 import { gameState } from '../../states/gameState.js';
 import { Fighter } from './Fighter.js';
 import { Pastizz } from './special/Pastizz.js';
 import { Uwejja } from './special/Uwejja.js';
 import { RicottaHeal } from './special/RicottaHeal.js';
+import { Plane } from './special/Plane.js';
 
 const PUNCHES = [SpecialMovesControls.LIGHT_PUNCH, SpecialMovesControls.MEDIUM_PUNCH, SpecialMovesControls.HEAVY_PUNCH];
 const KICKS = [SpecialMovesControls.LIGHT_KICK, SpecialMovesControls.MEDIUM_KICK, SpecialMovesControls.HEAVY_KICK];
-
-/** What the fighter shouts for each super power (spoken by the browser voice). */
-const SPOKEN = {
-	[SpecialKind.MELA]: 'Mela!',
-	[SpecialKind.PASTIZZI]: 'Pastizzi!',
-	[SpecialKind.UWEJJA]: 'Uwejja!',
-	[SpecialKind.RICOTTA]: 'Ricotta!',
-};
 
 // a special can interrupt standing, walking, crouching and the first button of its own motion
 const SPECIAL_VALID_FROM = [
@@ -52,7 +47,7 @@ const SPECIAL_VALID_FROM = [
  * controls and special-move input as the classic 2D-fighter template). Each concrete fighter
  * only supplies its own artwork (`cfg.sheet`), its MELA orb (`cfg.Projectile`) and its voice.
  *
- * Four super powers: MELA (orb), PASTIZZI (lobbed volley), UWEJJA (shockwave), RICOTTA (heal).
+ * Five super powers: MELA (orb), PASTIZZI (lobbed volley), UWEJJA (shockwave), RICOTTA (heal), GO BACK TO YOUR COUNTRY (plane).
  *
  * cfg = { imageId, sheet, Projectile, voice, special: { mela, pastizzi, uwejja, ricotta } (callout subtitles) }
  */
@@ -1316,6 +1311,13 @@ export class MalteseFighter extends Fighter {
 			['special-4', 32],
 			['special-4', FrameDelay.TRANSITION],
 		],
+		[FighterState.SPECIAL_PLANE]: [
+			['special-1', 6],
+			['special-2', 12],
+			['special-3', 4],
+			['special-4', 36],
+			['special-4', FrameDelay.TRANSITION],
+		],
 		[FighterState.SPECIAL_RICOTTA]: [
 			['special-1', 4],
 			['special-2', 10],
@@ -1366,6 +1368,20 @@ export class MalteseFighter extends Fighter {
 			sequence: [SpecialMovesControls.DOWN, SpecialMovesControls.FORWARD_DOWN, SpecialMovesControls.FORWARD, button],
 			cursor: 0,
 		})),
+		// GO BACK TO YOUR COUNTRY!  down, down-forward, forward, down, down-forward, forward + punch
+		...PUNCHES.map((button) => ({
+			state: FighterState.SPECIAL_PLANE,
+			sequence: [
+				SpecialMovesControls.DOWN,
+				SpecialMovesControls.FORWARD_DOWN,
+				SpecialMovesControls.FORWARD,
+				SpecialMovesControls.DOWN,
+				SpecialMovesControls.FORWARD_DOWN,
+				SpecialMovesControls.FORWARD,
+				button,
+			],
+			cursor: 0,
+		})),
 		// RICOTTA!  down, down-back, back + kick
 		...KICKS.map((button) => ({
 			state: FighterState.SPECIAL_RICOTTA,
@@ -1393,6 +1409,7 @@ export class MalteseFighter extends Fighter {
 		[SpecialKind.PASTIZZI]: 0,
 		[SpecialKind.UWEJJA]: 0,
 		[SpecialKind.RICOTTA]: 0,
+		[SpecialKind.PLANE]: 0,
 	};
 	lastTime = 0;
 
@@ -1416,6 +1433,7 @@ export class MalteseFighter extends Fighter {
 		this.states[FighterState.SPECIAL_PASTIZZI] = special(FighterAttackStrength.LIGHT);
 		this.states[FighterState.SPECIAL_UWEJJA] = special(FighterAttackStrength.HEAVY);
 		this.states[FighterState.SPECIAL_RICOTTA] = special(FighterAttackStrength.LIGHT);
+		this.states[FighterState.SPECIAL_PLANE] = special(FighterAttackStrength.HEAVY);
 
 		this.states[FighterState.IDLE].validFrom = [
 			...this.states[FighterState.IDLE].validFrom,
@@ -1425,6 +1443,7 @@ export class MalteseFighter extends Fighter {
 			FighterState.SPECIAL_PASTIZZI,
 			FighterState.SPECIAL_UWEJJA,
 			FighterState.SPECIAL_RICOTTA,
+			FighterState.SPECIAL_PLANE,
 		];
 	}
 
@@ -1469,7 +1488,7 @@ export class MalteseFighter extends Fighter {
 		this.fireballFired = false;
 		const kind = specialOfState(this.currentState);
 		Audio.zap(kind, this.cfg.voice?.pitch ?? 1);
-		shout(SPOKEN[kind], this.cfg.voice);
+		Voice.say(kind, this.cfg.voice);
 	};
 
 	fireSpecial = (kind, attackStrength, time) => {
@@ -1480,6 +1499,8 @@ export class MalteseFighter extends Fighter {
 			for (let i = 0; i < 3; i++) this.entityList.add(Pastizz, this, FighterAttackStrength.LIGHT, time, i);
 		} else if (kind === SpecialKind.UWEJJA) {
 			this.entityList.add(Uwejja, this, FighterAttackStrength.HEAVY, time);
+		} else if (kind === SpecialKind.PLANE) {
+			this.entityList.add(Plane, this, FighterAttackStrength.HEAVY, time);
 		} else if (kind === SpecialKind.RICOTTA) {
 			const me = gameState.fighters[this.playerId];
 			const healed = Math.min(HEALTH_MAX_HIT_POINTS, me.hitPoints + spec.heal) - me.hitPoints;
@@ -1528,12 +1549,20 @@ export class MalteseFighter extends Fighter {
 		return (context, camera) => {
 			base(context, camera);
 			if (!this.callout) return;
-			const x = Math.floor(this.position.x - camera.position.x);
+			let x = Math.floor(this.position.x - camera.position.x);
 			const y = Math.floor(this.position.y - camera.position.y) - 112 - this.callout.age * 12;
 			context.save();
 			context.textAlign = 'center';
 			context.lineJoin = 'round';
-			context.font = 'bold 15px "Arial Black", Impact, sans-serif';
+			// long shouts (GO BACK TO YOUR COUNTRY!) shrink to fit and stay on screen
+			let size = 15;
+			context.font = `bold ${size}px "Arial Black", Impact, sans-serif`;
+			while (context.measureText(this.callout.text).width > 190 && size > 8) {
+				size -= 1;
+				context.font = `bold ${size}px "Arial Black", Impact, sans-serif`;
+			}
+			const half = context.measureText(this.callout.text).width / 2 + 4;
+			x = Math.min(SCENE_WIDTH - half, Math.max(half, x));
 			context.lineWidth = 4;
 			context.strokeStyle = '#2a0a0a';
 			context.strokeText(this.callout.text, x, y);

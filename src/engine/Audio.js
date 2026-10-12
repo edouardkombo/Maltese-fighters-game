@@ -171,6 +171,16 @@ class AudioEngine {
 
 	toggleMute = () => this.setMuted(!this.muted);
 
+	/** Turn the music down for a few seconds (so a voice line can be heard). */
+	duckMusic(seconds = 3) {
+		if (!this.musicBus) return;
+		const t = this.ctx.currentTime;
+		const g = this.musicBus.gain;
+		g.cancelScheduledValues(t);
+		g.setTargetAtTime(0.15, t, 0.08);
+		g.setTargetAtTime(0.55, t + seconds, 0.4);
+	}
+
 	// ------------------------------------------------------------------------------ music
 	playMusic(name) {
 		this.wantedTrack = name;
@@ -357,6 +367,12 @@ class AudioEngine {
 			this.noiseBurst(t, 0.4, 0.35, 'lowpass', 1800, 0.8, this.sfxBus, 200);
 			return;
 		}
+		if (kind === 'plane') {
+			// jet engine roaring past
+			this.noiseBurst(t, 1.1, 0.35, 'bandpass', 400, 0.9, this.sfxBus, 2600);
+			this.sweep(t, 220, 520, 1.0, 'sawtooth', 0.08);
+			return;
+		}
 		if (kind === 'pastizzi') {
 			[0, 0.09, 0.18].forEach((d, i) => this.sweep(t + d, (500 + i * 120) * pitch, 180 * pitch, 0.12, 'square', 0.1));
 			return;
@@ -414,30 +430,3 @@ class AudioEngine {
 }
 
 export const Audio = new AudioEngine();
-
-// ------------------------------------------------------------------------------------------ voice
-/** Shout a word with the browser's speech voice (Maltese > Italian > English voice if available). */
-export const shout = (text, { pitch = 1, rate = 1.05 } = {}) => {
-	if (Audio.muted) return;
-	try {
-		const synth = window.speechSynthesis;
-		if (!synth) return;
-		synth.cancel();
-		const u = new SpeechSynthesisUtterance(text);
-		u.pitch = pitch;
-		u.rate = rate;
-		u.volume = 1;
-		const voices = synth.getVoices();
-		const voice =
-			voices.find((v) => v.lang.toLowerCase().startsWith('mt')) ||
-			voices.find((v) => v.lang.toLowerCase().startsWith('it')) ||
-			voices.find((v) => v.lang.toLowerCase().startsWith('en'));
-		if (voice) {
-			u.voice = voice;
-			u.lang = voice.lang;
-		}
-		synth.speak(u);
-	} catch (e) {
-		/* speech is optional */
-	}
-};

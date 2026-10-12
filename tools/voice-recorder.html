@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Voice Recorder - Pastizzis Fighters</title>
+		<style>
+			:root { --bg: #0a1430; --card: #16234a; --ink: #f2f4ff; --muted: #9fb0e8; --gold: #ffcc00; --red: #e0303a; }
+			* { box-sizing: border-box; }
+			body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 system-ui, sans-serif; padding: 16px; }
+			main { max-width: 760px; margin: 0 auto; }
+			h1 { color: var(--gold); margin: 8px 0 4px; }
+			p, li { color: var(--muted); }
+			.line { background: var(--card); border-radius: 12px; padding: 12px 14px; margin: 10px 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+			.line b { flex: 1 1 220px; font-size: 18px; }
+			.line small { display: block; color: var(--muted); font-weight: 400; font-size: 13px; }
+			button { font: 700 15px system-ui, sans-serif; padding: 9px 14px; border-radius: 999px; border: 0; cursor: pointer; background: #2c3e7a; color: var(--ink); }
+			button.rec { background: var(--red); }
+			button.rec.on { animation: pulse 0.8s infinite alternate; }
+			button:disabled { opacity: 0.4; cursor: default; }
+			.ok { color: #35e0a0; font-weight: 700; }
+			.big { background: var(--gold); color: #3a1200; }
+			@keyframes pulse { to { filter: brightness(1.6); } }
+			code { background: #0005; padding: 1px 5px; border-radius: 4px; color: var(--ink); }
+		</style>
+	</head>
+	<body>
+		<main>
+			<h1>🎙 Record the game's voices</h1>
+			<p>Record each line with a real Maltese voice (yours, your friends', your family's). The game plays these
+			recordings instead of the computer voice.</p>
+			<ol>
+				<li>Press <b>Record</b>, say the line with energy, press <b>Stop</b>. Listen with <b>Play</b>, redo if you like.</li>
+				<li>Press <b>Save</b> on each line: it downloads a file (for example <code>mela.webm</code>).</li>
+				<li>Press <b>Download voices.json</b> at the bottom.</li>
+				<li>Put all those files in the game's <code>public/voices/</code> folder and publish.</li>
+			</ol>
+			<div id="lines"></div>
+			<p><button class="big" id="manifest">Download voices.json</button> <span id="count"></span></p>
+			<p>Lines you skip keep using the computer voice.</p>
+		</main>
+		<script type="module">
+			import { LINES } from '../src/engine/Voice.js';
+
+			const HINTS = {
+				'intro-lou-ichi': 'Launch call - bright, high and cheerful (like a famous plumber says his name)',
+				'intro-title': 'Launch call - deep announcer voice, in Maltese style',
+				mela: 'MELA orb', pastizzi: 'PASTIZZI attack', uwejja: 'UWEJJA shockwave', ricotta: 'RICOTTA heal', plane: 'The plane',
+			};
+			const mime = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg'].find((m) => window.MediaRecorder?.isTypeSupported?.(m)) || '';
+			const ext = mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm';
+			const takes = {};
+			let stream = null;
+
+			const save = (blob, name) => {
+				const a = document.createElement('a');
+				a.href = URL.createObjectURL(blob);
+				a.download = name;
+				a.click();
+				setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+			};
+			const updateCount = () => (document.getElementById('count').textContent = `${Object.keys(takes).length} / ${Object.keys(LINES).length} recorded`);
+
+			for (const [id, line] of Object.entries(LINES)) {
+				const row = document.createElement('div');
+				row.className = 'line';
+				row.innerHTML = `<b>“${line.text}”<small>${HINTS[id] || ''}</small></b>
+					<button class="rec">● Record</button><button class="play" disabled>▶ Play</button><button class="save" disabled>⬇ Save</button><span class="state"></span>`;
+				const [recBtn, playBtn, saveBtn] = row.querySelectorAll('button');
+				const state = row.querySelector('.state');
+				let rec = null;
+				recBtn.onclick = async () => {
+					if (rec) return rec.stop();
+					try {
+						stream ??= await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+					} catch (e) {
+						state.textContent = 'Microphone not allowed';
+						return;
+					}
+					const chunks = [];
+					rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+					rec.ondataavailable = (e) => chunks.push(e.data);
+					rec.onstop = () => {
+						takes[id] = new Blob(chunks, { type: rec.mimeType });
+						rec = null;
+						recBtn.textContent = '● Record again';
+						recBtn.classList.remove('on');
+						playBtn.disabled = saveBtn.disabled = false;
+						state.innerHTML = '<span class="ok">✓ recorded</span>';
+						updateCount();
+					};
+					rec.start();
+					recBtn.textContent = '■ Stop';
+					recBtn.classList.add('on');
+					state.textContent = 'recording…';
+				};
+				playBtn.onclick = () => new Audio(URL.createObjectURL(takes[id])).play();
+				saveBtn.onclick = () => save(takes[id], `${id}.${ext}`);
+				document.getElementById('lines').appendChild(row);
+			}
+			document.getElementById('manifest').onclick = () => {
+				const list = Object.fromEntries(Object.keys(takes).map((id) => [id, `${id}.${ext}`]));
+				save(new Blob([JSON.stringify(list, null, 2)], { type: 'application/json' }), 'voices.json');
+			};
+			updateCount();
+		</script>
+	</body>
+</html>

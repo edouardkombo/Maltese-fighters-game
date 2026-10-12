@@ -16,7 +16,7 @@ import { CONTROL_ORDER, Control } from '../constants/controls.js';
 import { SPECIALS, SPECIAL_ORDER } from '../constants/specials.js';
 import { Camera } from '../engine/Camera.js';
 import { EntityList } from '../engine/EntityList.js';
-import { Lou, Ganni, Karmenu } from '../entitites/fighters/index.js';
+import { Lou, Ganni, Karmenu, Ichi } from '../entitites/fighters/index.js';
 import {
 	HeavyHitSplash,
 	LightHitSplash,
@@ -32,9 +32,12 @@ import { clearSimHeld, sampleLocalHeld, setAIHeld, setInputEnabled, setSimHeld }
 import { TouchControls } from '../engine/TouchControls.js';
 import { Audio } from '../engine/Audio.js';
 import { Net } from '../engine/Net.js';
-import { isTouchDevice } from '../utils/pointer.js';
 import { InterludeScene } from './InterludeScene.js';
 import { NetLobbyScene } from './NetLobbyScene.js';
+import { MenuScene } from './MenuScene.js';
+import { setPauseHandler } from '../engine/ScreenControls.js';
+import { getCanvas, isTouchDevice, toLogical } from '../utils/pointer.js';
+import { drawButton, inRect } from './ui.js';
 
 const INTRO_TIME = 2.1; // "ROUND n" + "FIGHT!"
 const ROUND_END_TIME = 3.0;
@@ -81,6 +84,12 @@ export class BattleScene {
 			: null;
 		this.overlays = [];
 		if (this.net) this.initNet();
+		else {
+			// single player can pause (Esc / P / the ❚❚ button) and quit back to the menu
+			setPauseHandler(this.togglePause);
+			window.addEventListener('keydown', this.onPauseKey);
+			getCanvas().addEventListener('pointerup', this.onPauseClick);
+		}
 		Audio.playMusic('fight');
 		TouchControls.show();
 		this.startRound();
@@ -92,7 +101,56 @@ export class BattleScene {
 		clearSimHeld();
 		setInputEnabled(true);
 		this.unsubscribeNet?.();
+		setPauseHandler(null);
+		window.removeEventListener('keydown', this.onPauseKey);
+		getCanvas().removeEventListener('pointerup', this.onPauseClick);
 	};
+
+	// -------------------------------------------------------------------------------- pause (single player)
+	paused = false;
+	pauseButtons = [
+		{ id: 'resume', label: 'RESUME', x: SCENE_WIDTH / 2 - 70, y: 96, w: 140, h: 26 },
+		{ id: 'quit', label: 'QUIT TO MENU', x: SCENE_WIDTH / 2 - 70, y: 132, w: 140, h: 26 },
+	];
+
+	togglePause = () => {
+		if (this.leaving || this.phase === 'matchEnd') return;
+		this.paused = !this.paused;
+		if (this.paused) {
+			Audio.click();
+			TouchControls.hide();
+		} else TouchControls.show();
+	};
+
+	quitToMenu = () => {
+		if (this.leaving) return;
+		this.leaving = true;
+		Audio.click();
+		this.changeScene(MenuScene);
+	};
+
+	onPauseKey = (e) => {
+		if (e.repeat) return;
+		if (e.code === 'Escape' || e.code === 'KeyP') this.togglePause();
+		else if (this.paused && e.code === 'Enter') this.togglePause();
+		else if (this.paused && e.code === 'KeyQ') this.quitToMenu();
+	};
+
+	onPauseClick = (e) => {
+		if (!this.paused) return;
+		const p = toLogical(e);
+		const hit = this.pauseButtons.find((b) => inRect(p, b));
+		if (hit?.id === 'resume') this.togglePause();
+		else if (hit?.id === 'quit') this.quitToMenu();
+	};
+
+	drawPause(context) {
+		context.fillStyle = 'rgba(5,10,30,.7)';
+		context.fillRect(0, 0, SCENE_WIDTH, 224);
+		this.drawBanner(context, 'PAUSED', 80, 24, '#ffffff');
+		this.pauseButtons.forEach((b, i) => drawButton(context, b, b.label, { fill: i === 0 ? '#ffcc00' : '#9fb6ff' }));
+		this.drawLabel(context, this.touch ? '' : 'ESC resume  •  Q quit', SCENE_WIDTH / 2, 176, '#b8c4ff');
+	}
 
 	// -------------------------------------------------------------------------------- setup
 	getFighterClass = (id) => {
@@ -103,6 +161,8 @@ export class BattleScene {
 				return Ganni;
 			case FighterId.KARMENU:
 				return Karmenu;
+			case FighterId.ICHI:
+				return Ichi;
 			default:
 				throw new Error(`Invalid Fighter Id: ${id}`);
 		}
@@ -326,7 +386,7 @@ export class BattleScene {
 
 	update = (time) => {
 		if (this.net) this.stepNet(time);
-		else this.simulate(time);
+		else if (!this.paused) this.simulate(time);
 	};
 
 	// -------------------------------------------------------------------------------- online lockstep
@@ -518,7 +578,7 @@ export class BattleScene {
 				context.textAlign = 'center';
 				context.textBaseline = 'middle';
 				context.fillStyle = left > 0 ? 'rgba(255,255,255,.7)' : '#1a1020';
-				context.fillText(showKeys ? s.key : s.label[0], x, y + 0.5);
+				context.fillText(showKeys ? s.key : s.icon || s.label[0], x, y + 0.5);
 				context.restore();
 			});
 		}
@@ -594,6 +654,7 @@ export class BattleScene {
 		this.drawSpecialIcons(context);
 		this.drawPhaseText(context);
 		if (this.net) this.drawNetInfo(context);
+		if (this.paused) this.drawPause(context);
 		TouchControls.updateCooldowns(this.fighters[this.localIndex]);
 	};
 }

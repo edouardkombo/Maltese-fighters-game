@@ -5,7 +5,7 @@ import { gameState } from '../states/gameState.js';
 import { getCanvas, toLogical } from '../utils/pointer.js';
 import { NetLobbyScene } from './NetLobbyScene.js';
 import { SelectScene } from './SelectScene.js';
-import { drawBackdrop, drawButton, inRect, outlinedText } from './ui.js';
+import { drawBackdrop, drawButton, drawTitleLogo, inRect, outlinedText } from './ui.js';
 
 const CX = SCENE_WIDTH / 2;
 
@@ -72,8 +72,8 @@ export class MenuScene {
 
 	draw = (context) => {
 		drawBackdrop(context, this.t);
-		outlinedText(context, 'MALTESE FIGHTERS', CX, 34, 22, '#ffcc00', '#7a0a14');
-		outlinedText(context, 'HOW DO YOU WANT TO PLAY?', CX, 54, 9, '#b8c4ff', '#0a1030');
+		drawTitleLogo(context, CX, 24, 15, this.t);
+		outlinedText(context, 'HOW DO YOU WANT TO PLAY?', CX, 60, 9, '#b8c4ff', '#0a1030');
 		const pulse = (Math.sin(this.t * 5) + 1) / 2;
 		this.buttons.forEach((b, i) => {
 			const on = i === this.selected;

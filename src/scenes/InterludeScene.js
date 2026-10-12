@@ -3,6 +3,7 @@ import { gameState, prepareStage, currentOpponent, startSession, ROSTER } from '
 import { toLogical, getCanvas, isTouchDevice } from '../utils/pointer.js';
 import { BattleScene } from './BattleScene.js';
 import { SelectScene } from './SelectScene.js';
+import { MenuScene } from './MenuScene.js';
 import { FIGHTER_INFO, drawBackdrop, drawButton, drawPortrait, inRect, outlinedText } from './ui.js';
 import { ARENAS } from '../entitites/stage/MaltaStage.js';
 import { Audio } from '../engine/Audio.js';
@@ -12,8 +13,8 @@ const AUTO_START = 4.5; // seconds before a "versus" screen starts the fight on 
 /**
  * The screens between fights, driven by gameState.session.mode:
  *   stage    -> "STAGE n  A vs B"  (then the fight)
- *   gameover -> retry / change fighter
- *   champion -> you beat everyone
+ *   gameover -> retry / change fighter / main menu
+ *   champion -> you beat everyone: change fighter / main menu
  */
 export class InterludeScene {
 	t = 0;
@@ -53,10 +54,15 @@ export class InterludeScene {
 		if (this.mode === 'stage') return [{ id: 'go', label: 'FIGHT!', x: cx - 62, y: 186, w: 124, h: 26 }];
 		if (this.mode === 'gameover')
 			return [
-				{ id: 'retry', label: 'TRY AGAIN', x: cx - 118, y: 176, w: 108, h: 26 },
-				{ id: 'menu', label: 'CHANGE FIGHTER', x: cx + 10, y: 176, w: 108, h: 26 },
+				{ id: 'retry', label: 'TRY AGAIN', x: cx - 172, y: 176, w: 108, h: 26 },
+				{ id: 'fighter', label: 'CHANGE FIGHTER', x: cx - 54, y: 176, w: 108, h: 26 },
+				{ id: 'main', label: 'MAIN MENU', x: cx + 64, y: 176, w: 108, h: 26 },
 			];
-		return [{ id: 'menu', label: 'PLAY AGAIN', x: cx - 62, y: 186, w: 124, h: 26 }];
+		// champion: pick another fighter right away, or go back to choose a mode (1 player / online)
+		return [
+			{ id: 'fighter', label: 'CHANGE FIGHTER', x: cx - 118, y: 184, w: 108, h: 26 },
+			{ id: 'main', label: 'MAIN MENU', x: cx + 10, y: 184, w: 108, h: 26 },
+		];
 	}
 
 	act = (id) => {
@@ -66,7 +72,8 @@ export class InterludeScene {
 		else if (id === 'retry') {
 			startSession(gameState.session.playerId);
 			this.changeScene(InterludeScene);
-		} else this.changeScene(SelectScene);
+		} else if (id === 'main') this.changeScene(MenuScene);
+		else this.changeScene(SelectScene);
 	};
 
 	onUp = (e) => {
@@ -80,6 +87,9 @@ export class InterludeScene {
 		if (e.repeat) return;
 		if (e.code === 'Enter' || e.code === 'Space') {
 			this.act(this.buttons[0].id);
+			e.preventDefault();
+		} else if (e.code === 'Escape' && this.mode !== 'stage') {
+			this.act('main');
 			e.preventDefault();
 		}
 	};
@@ -150,6 +160,6 @@ export class InterludeScene {
 		else if (this.mode === 'gameover') this.drawGameOver(context);
 		else this.drawChampion(context);
 		const pulse = (Math.sin(this.t * 5) + 1) / 2;
-		this.buttons.forEach((b, i) => drawButton(context, b, b.label, { pulse: i === 0 ? pulse : 0, fill: b.id === 'menu' && this.mode === 'gameover' ? '#9fb6ff' : '#ffcc00' }));
+		this.buttons.forEach((b, i) => drawButton(context, b, b.label, { pulse: i === 0 ? pulse : 0, fill: i === 0 ? '#ffcc00' : '#9fb6ff' }));
 	};
 }

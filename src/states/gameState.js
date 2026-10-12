@@ -3,7 +3,7 @@ import { pickArena } from '../entitites/stage/MaltaStage.js';
 import { createDefaultFighterState } from './fighterState.js';
 
 /** Everybody who can be picked, in "chain" order. */
-export const ROSTER = [FighterId.LOU, FighterId.GANNI, FighterId.KARMENU];
+export const ROSTER = [FighterId.LOU, FighterId.ICHI, FighterId.GANNI, FighterId.KARMENU];
 
 /** Rounds needed to win a fight (best of three: 2 rounds, a 3rd only if they are level). */
 export const ROUNDS_TO_WIN = 2;

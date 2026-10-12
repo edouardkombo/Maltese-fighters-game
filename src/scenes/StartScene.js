@@ -5,11 +5,10 @@ import { NetLobbyScene } from './NetLobbyScene.js';
 import { isTouchDevice } from '../utils/pointer.js';
 import { Audio } from '../engine/Audio.js';
 import { roomFromUrl } from '../engine/Net.js';
-import { drawBackdrop, drawMoveList, outlinedText } from './ui.js';
+import { drawBackdrop, drawMoveList, drawTitleLogo, outlinedText } from './ui.js';
 
 /** Title screen: logo, controls and super powers. The first tap / click / key also starts the music. */
 export class StartScene {
-	logoImg = document.getElementById('Logo');
 	touch = isTouchDevice();
 	room = roomFromUrl();
 	text = this.room
@@ -53,26 +52,19 @@ export class StartScene {
 	};
 
 	drawLogo = (context) => {
-		if (!this.logoImg || !this.logoImg.complete) return;
-		context.imageSmoothingEnabled = true;
-		const scale = 0.85 + Math.sin(this.t * 3) * 0.015;
-		const w = (this.logoImg.naturalWidth / 3) * scale; // logo.png is stored at 3x
-		const h = (this.logoImg.naturalHeight / 3) * scale;
-		context.globalAlpha = this.logoFlash ? 0.8 : 1;
-		context.drawImage(this.logoImg, (SCENE_WIDTH - w) / 2, 4, w, h);
-		context.imageSmoothingEnabled = false;
-		context.globalAlpha = 1;
+		drawTitleLogo(context, SCENE_WIDTH / 2, 30, 24, this.t);
+		outlinedText(context, 'by Louison', SCENE_WIDTH / 2, 66, 8, '#ffe9a0', '#2a1000', 'center', 700);
 	};
 
 	draw = (context) => {
 		drawBackdrop(context, this.t);
 		this.drawLogo(context);
 		context.fillStyle = 'rgba(0,0,0,.35)';
-		context.fillRect(10, 72, SCENE_WIDTH - 20, 66);
-		drawMoveList(context, this.touch, 16, 86);
+		context.fillRect(10, 72, SCENE_WIDTH - 20, 78);
+		drawMoveList(context, this.touch, 16, 84);
 		const pulse = 0.55 + 0.45 * Math.abs(Math.sin(this.t * 3));
 		context.globalAlpha = pulse;
-		outlinedText(context, this.text, SCENE_WIDTH / 2, 166, 12, '#ffcc00', '#5a0a10');
+		outlinedText(context, this.text, SCENE_WIDTH / 2, 170, 12, '#ffcc00', '#5a0a10');
 		context.globalAlpha = 1;
 		outlinedText(context, 'PLAY THE CPU  •  OR FIGHT A FRIEND ONLINE WITH A LINK', SCENE_WIDTH / 2, 186, 7, '#b8c4ff', '#0a1030', 'center', 700);
 		if (!Audio.unlocked) outlinedText(context, '♪ music starts on your first tap / click', SCENE_WIDTH / 2, 212, 6.5, '#8c98cc', '#0a1030', 'center', 700);

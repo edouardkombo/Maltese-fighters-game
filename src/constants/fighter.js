@@ -73,6 +73,7 @@ export const FighterState = {
 	SPECIAL_PASTIZZI: 'specialPastizzi',
 	SPECIAL_UWEJJA: 'specialUwejja',
 	SPECIAL_RICOTTA: 'specialRicotta',
+	SPECIAL_PLANE: 'specialPlane',
 	VICTORY: 'victory',
 	KO: 'ko',
 };
@@ -88,6 +89,7 @@ export const FighterId = {
 	LOU: 'Lou',
 	GANNI: 'Ganni',
 	KARMENU: 'Karmenu',
+	ICHI: 'Ichi',
 };
 
 export const PushBox = {
@@ -212,6 +214,7 @@ export const FighterHurtStates = [
 	FighterState.SPECIAL_PASTIZZI,
 	FighterState.SPECIAL_UWEJJA,
 	FighterState.SPECIAL_RICOTTA,
+	FighterState.SPECIAL_PLANE,
 	FighterState.CROUCH,
 	FighterState.CROUCH_UP,
 	FighterState.CROUCH_DOWN,

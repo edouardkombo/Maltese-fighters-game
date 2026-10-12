@@ -14,6 +14,7 @@ export const Control = {
 	SPECIAL_PASTIZZI: 'specialPastizzi',
 	SPECIAL_UWEJJA: 'specialUwejja',
 	SPECIAL_RICOTTA: 'specialRicotta',
+	SPECIAL_PLANE: 'specialPlane',
 };
 
 /** Fixed order of every control: used to pack a player's input into bits for online play. */

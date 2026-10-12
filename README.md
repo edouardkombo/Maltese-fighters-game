@@ -1,4 +1,4 @@
-# Maltese Fighters
+# Pastizzis Fighters
 
 A browser fighting game set in Malta. Pure HTML5 canvas + ES modules:
 **no build step, no dependencies to install** - it runs as-is on GitHub Pages.
@@ -10,10 +10,11 @@ A browser fighting game set in Malta. Pure HTML5 canvas + ES modules:
 | **LOU** | The young striker - drawn from the reference artwork (afro, red headband, black/red kit, striped socks, fingerless gloves) |
 | **GANNI** | *il-Pastizzier* - flour-dusted baker, flat cap, big moustache |
 | **KARMENU** | *il-Kondutturi* - vintage bus driver, aviators, "the bus is late" |
+| **ICHI** | Lou's fire-fox spirit - fierce but on the good side: glowing eyes, fang grin, three blue spirit-fire tails. Drawn in code (`src/entitites/fighters/IchiArt.js`). Quicker steps, floatier jumps, throws blue fox-fire |
 
-## The four super powers
+## The five super powers
 
-Every fighter has all four, each with its own effect and cooldown (the round icons under the health bars,
+Every fighter has all five, each with its own effect and cooldown (the round icons under the health bars,
 and the touch buttons, fill up again when a power is ready):
 
 | Power | Effect | Desktop key | Motion (classic) |
@@ -22,8 +23,22 @@ and the touch buttons, fill up again when a power is ready):
 | **PASTIZZI!** | Lobs 3 hot pastizzi in an arc - good against jumpers and from afar | **W** | ↓ ↙ ← + punch |
 | **UWEJJA!** | Close-range shout shockwave: big damage, huge knock-back, plows through projectiles | **E** | ↓ ↘ → + kick |
 | **RICOTTA!** | Eat a ricotta pastizz: heals 25 HP (long cooldown) | **R** | ↓ ↙ ← + kick |
+| **✈ GO BACK TO YOUR COUNTRY!** | Throws a plane at the opponent: the biggest hit (38), 12 s cooldown | **T** | ↓ ↘ → ↓ ↘ → + punch |
 
 On phones/tablets each power is one tap on its own button.
+
+## Voices
+
+At launch the game calls out *"Lou & Ichi!"* (bright and high) then *"Pastizzi Fighters!"* (deep, Maltese style), and every
+super power is shouted. To use **real Maltese voices**, open `tools/voice-recorder.html`, record each line, save the files
+and the `voices.json` it gives you into `public/voices/`. Lines without a recording use the browser's voice (Microsoft Edge has
+natural Maltese voices, which the game picks first).
+
+## New versions
+
+When you publish an update, **change the version in `version.json`**. On launch every player's browser compares it with the
+version it ran last time and, if it changed, clears its cached files and reloads itself once. A service worker (`sw.js`) also
+re-checks every file with the server, so nobody keeps playing an old copy.
 
 ## Arenas
 
@@ -68,8 +83,8 @@ All paths are relative and every file name is lower-case/exact-case, so it also 
 
 ## How a game works
 
-1. **1 PLAYER**: pick your fighter (swipe / arrows / Enter), then beat the rest of the roster one after the other.
-   Lose a fight = game over (retry or change fighter); win them all = *Champion of Malta*.
+1. **1 PLAYER**: pick your fighter (swipe / arrows / Enter; **BACK** / Esc returns to the menu to choose online play), then beat the rest of the roster one after the other.
+   Lose a fight = game over (retry or change fighter); win them all = *Champion of Malta*, then **CHANGE FIGHTER** to go again or **MAIN MENU** to pick another mode (online play).
 2. **Each fight is two rounds**; if you win one each (or both are draws) a **third, deciding round** is played.
 3. **The CPU gets tougher every stage** and uses all four super powers too.
 
@@ -83,16 +98,17 @@ All paths are relative and every file name is lower-case/exact-case, so it also 
 | ↑ / ↓ | Jump / crouch |
 | A / S / D | Light / medium / heavy punch |
 | Z / X / C | Light / medium / heavy kick |
-| Q / W / E / R | MELA / PASTIZZI / UWEJJA / RICOTTA |
+| Q / W / E / R / T | MELA / PASTIZZI / UWEJJA / RICOTTA / ✈ GO BACK TO YOUR COUNTRY |
+| Esc / P | Pause (1 player): resume or quit to the menu |
 | F (or double-click, or the ⛶ button) | Full screen |
 | M | Sound on / off |
 
 **Touch (phones / tablets)** - an on-screen controller appears in fights: a D-pad (slide your thumb for diagonals / jump / crouch),
-`LP MP HP` punches, `LK MK HK` kicks and the four super-power buttons. Works in portrait (controller under the game) and in
+`LP MP HP` punches, `LK MK HK` kicks and the five super-power buttons (✈ = the plane). Works in portrait (controller under the game) and in
 landscape (controller floats over the corners). Full screen via the ⛶ button (on iPhone use *Share -> Add to Home Screen*,
 which opens the game full screen thanks to `manifest.webmanifest`).
 
-**Gamepad** - D-pad, face buttons + L1/R1 for attacks, L2 / R2 / L3 / R3 for the four super powers.
+**Gamepad** - D-pad, face buttons + L1/R1 for attacks, L2 / R2 / L3 / R3 / Select for the five super powers.
 
 Add `?touch` to the URL to preview the touch controller on a desktop, `?debug` for the FPS counter.
 

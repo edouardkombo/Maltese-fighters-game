@@ -11,6 +11,7 @@ const PSControls = {
 	R2: 7,
 	L3: 10,
 	R3: 11,
+	SELECT: 8,
 	UP: 12,
 	DOWN: 13,
 	LEFT: 14,
@@ -32,6 +33,7 @@ const gamepad = {
 	[Control.SPECIAL_PASTIZZI]: PSControls.R2,
 	[Control.SPECIAL_UWEJJA]: PSControls.L3,
 	[Control.SPECIAL_RICOTTA]: PSControls.R3,
+	[Control.SPECIAL_PLANE]: PSControls.SELECT,
 };
 
 /**
@@ -42,6 +44,7 @@ const gamepad = {
  *   A S D    light / medium / heavy punch
  *   Z X C    light / medium / heavy kick
  *   Q W E R  MELA / PASTIZZI / UWEJJA / RICOTTA
+ *   T        GO BACK TO YOUR COUNTRY (the plane)
  */
 export const controls = [
 	{
@@ -61,6 +64,7 @@ export const controls = [
 			[Control.SPECIAL_PASTIZZI]: 'KeyW',
 			[Control.SPECIAL_UWEJJA]: 'KeyE',
 			[Control.SPECIAL_RICOTTA]: 'KeyR',
+			[Control.SPECIAL_PLANE]: 'KeyT',
 		},
 	},
 	{
@@ -80,6 +84,7 @@ export const controls = [
 			[Control.SPECIAL_PASTIZZI]: 'Digit8',
 			[Control.SPECIAL_UWEJJA]: 'Digit9',
 			[Control.SPECIAL_RICOTTA]: 'Digit0',
+			[Control.SPECIAL_PLANE]: 'Minus',
 		},
 	},
 ];
