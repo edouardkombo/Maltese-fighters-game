@@ -1,5 +1,15 @@
 import { Control } from '../constants/controls.js';
 import { FighterDirection, FighterState } from '../constants/fighter.js';
+import { HEALTH_MAX_HIT_POINTS } from '../constants/battle.js';
+import { SpecialKind } from '../constants/specials.js';
+import { gameState } from '../states/gameState.js';
+
+const SUPER_CONTROL = {
+	[SpecialKind.MELA]: Control.SPECIAL_MELA,
+	[SpecialKind.PASTIZZI]: Control.SPECIAL_PASTIZZI,
+	[SpecialKind.UWEJJA]: Control.SPECIAL_UWEJJA,
+	[SpecialKind.RICOTTA]: Control.SPECIAL_RICOTTA,
+};
 
 /**
  * CPU opponent for player index 1. It "presses" controls through the same input path as a human
@@ -65,13 +75,24 @@ export class SimpleAI {
 		];
 	}
 
+	/** Press a one-touch super power if it is off cooldown. */
+	trySuper(kind) {
+		if (this.fighter.cooldownLeft?.(kind) !== 0) return false;
+		this.queue = [{ keys: [SUPER_CONTROL[kind]], frames: 2 }];
+		return true;
+	}
+
 	decide(dist, toward, away, forward) {
 		const c = this.cfg;
 		const opp = this.opponent;
 		const oppState = opp.currentState;
 		const r = Math.random();
 
-		// 1. punish jumps with a heavy punch (anti-air)
+		// 0. low on health and safe at range: eat a ricotta
+		const myHp = gameState.fighters[this.fighter.playerId]?.hitPoints ?? HEALTH_MAX_HIT_POINTS;
+		if (myHp < HEALTH_MAX_HIT_POINTS * 0.4 && dist > 120 && r < c.special * 2 && this.trySuper(SpecialKind.RICOTTA)) return;
+		// 1. punish jumps with a heavy punch (anti-air) - or pastizzi if they jump from far
+		if (AIRBORNE.has(oppState) && dist >= 95 && r < c.special && this.trySuper(SpecialKind.PASTIZZI)) return;
 		if (AIRBORNE.has(oppState) && dist < 95 && r < c.antiAir) {
 			this.queue = [{ keys: [Control.HEAVY_PUNCH], frames: 2 }];
 			return;
@@ -89,8 +110,10 @@ export class SimpleAI {
 		// 3. far away: throw a MELA! or close the distance
 		if (dist > 110) {
 			if (r < c.special) {
+				if (Math.random() < 0.35 && this.trySuper(SpecialKind.PASTIZZI)) return;
 				const punch = [Control.LIGHT_PUNCH, Control.MEDIUM_PUNCH, Control.HEAVY_PUNCH][rnd(0, 2)];
-				this.enqueueSpecial(forward, punch);
+				if (this.fighter.cooldownLeft?.(SpecialKind.MELA) === 0) this.enqueueSpecial(forward, punch);
+				else this.walk = { key: toward, frames: rnd(10, 20) };
 			} else if (r < c.special + 0.1) {
 				this.queue = [{ keys: [Control.UP, toward], frames: 3 }]; // jump in
 			} else {
@@ -111,7 +134,8 @@ export class SimpleAI {
 			}
 			return;
 		}
-		// 5. close range: combos / mix-ups
+		// 5. close range: combos / mix-ups (and the UWEJJA shockwave)
+		if (r < c.special * 0.7 && this.trySuper(SpecialKind.UWEJJA)) return;
 		if (r < c.aggression) {
 			if (Math.random() < c.combo) {
 				this.queue = [

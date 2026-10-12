@@ -29,12 +29,8 @@ import {
 import { FRAME_TIME } from '../../constants/game.js';
 import { DRAW_DEBUG, HIT_SPLASH_RANDOMNESS } from '../../constants/battle.js';
 import { DEBUG_drawCollisionInfo } from '../../utils/fighterDebug.js';
-import {
-	soundAttackIds,
-	soundHitIds,
-	soundLandId,
-} from '../../constants/sounds.js';
-import { playSound, stopSound } from '../../engine/SoundHandler.js';
+import { Audio } from '../../engine/Audio.js';
+
 import { ControlHistory } from '../../engine/ControlHistory.js';
 
 // [Done] TODO Convert hurt: [[], [], []] to {head:[], body:[], legs:[],}
@@ -80,44 +76,7 @@ export class Fighter {
 	currentState = FighterState.IDLE;
 
 	attackStruck = false;
-	soundAttacks = {
-		[FighterAttackStrength.LIGHT]: document.getElementById(
-			soundAttackIds.LIGHT
-		),
-		[FighterAttackStrength.MEDIUM]: document.getElementById(
-			soundAttackIds.MEDIUM
-		),
-		[FighterAttackStrength.HEAVY]: document.getElementById(
-			soundAttackIds.HEAVY
-		),
-	};
-
 	specialMoves = null;
-
-	soundHits = {
-		[FighterAttackStrength.LIGHT]: {
-			[FighterAttackType.PUNCH]: document.getElementById(
-				soundHitIds.LIGHT.PUNCH
-			),
-			[FighterAttackType.KICK]: document.getElementById(soundHitIds.LIGHT.KICK),
-		},
-		[FighterAttackStrength.MEDIUM]: {
-			[FighterAttackType.PUNCH]: document.getElementById(
-				soundHitIds.MEDIUM.PUNCH
-			),
-			[FighterAttackType.KICK]: document.getElementById(
-				soundHitIds.MEDIUM.KICK
-			),
-		},
-		[FighterAttackStrength.HEAVY]: {
-			[FighterAttackType.PUNCH]: document.getElementById(
-				soundHitIds.HEAVY.PUNCH
-			),
-			[FighterAttackType.KICK]: document.getElementById(soundHitIds.HEAVY.KICK),
-		},
-	};
-
-	soundLand = document.getElementById(soundLandId);
 
 	constructor(playerId, onAttackHit, entityList) {
 		this.playerId = playerId;
@@ -636,7 +595,8 @@ export class Fighter {
 
 	handleJumpLandState = (time) => {
 		if (this.animationFrame == 0) {
-			playSound(this.soundLand);
+			if (!this.landPlayed) Audio.land();
+			this.landPlayed = true;
 			return;
 		}
 		this.handleIdle(time);
@@ -644,6 +604,7 @@ export class Fighter {
 	};
 
 	handleJumpInit = () => {
+		this.landPlayed = false;
 		this.velocity.y = this.initialVelocity.jump;
 		this.handleMoveInit();
 	};
@@ -663,7 +624,7 @@ export class Fighter {
 
 	handleAttackInit = (time) => {
 		this.resetVelocities();
-		playSound(this.soundAttacks[this.states[this.currentState].attackStrength]);
+		Audio.whoosh(this.states[this.currentState].attackStrength);
 	};
 
 	handleLightAttackReset = (time) => {
@@ -730,20 +691,23 @@ export class Fighter {
 		attackStrength,
 		hurtArea,
 		attackType,
-		hitPosition
+		hitPosition,
+		damage = undefined, // overrides the strength's base damage (special moves)
+		knockback = 1
 	) => {
 		const newState = this.getAttackHurtState(attackStrength, hurtArea);
-		this.slideVelocity = FighterAttackBaseData[attackStrength].slide.velocity;
+		this.slideVelocity = FighterAttackBaseData[attackStrength].slide.velocity * knockback;
 		this.slideFriction = FighterAttackBaseData[attackStrength].slide.friction;
 
-		playSound(this.soundHits[attackStrength][attackType]);
+		Audio.hit(attackStrength, attackType);
 		this.opponent.attackStruck = true;
 		this.onAttackHit(
 			time,
 			this.opponent.playerId,
 			this.playerId,
 			hitPosition,
-			attackStrength
+			attackStrength,
+			damage
 		);
 
 		this.changeState(newState, time);
@@ -844,8 +808,6 @@ export class Fighter {
 			if (!boxOverlap(actualHitBox, actualOpponentHurtBox)) continue; // was `return`: only the head box could ever be hit
 
 			const { attackStrength, attackType } = this.states[this.currentState];
-
-			stopSound(this.soundAttacks[attackStrength]);
 
 			const hitPosition = {
 				x:

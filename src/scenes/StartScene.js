@@ -1,42 +1,44 @@
 import { SCENE_WIDTH } from '../constants/Stage.js';
 import { LOGO_FLASH_DELAY } from '../constants/battle.js';
-import { SelectScene } from './SelectScene.js';
+import { MenuScene } from './MenuScene.js';
+import { NetLobbyScene } from './NetLobbyScene.js';
 import { isTouchDevice } from '../utils/pointer.js';
+import { Audio } from '../engine/Audio.js';
+import { roomFromUrl } from '../engine/Net.js';
+import { drawBackdrop, drawMoveList, outlinedText } from './ui.js';
 
+/** Title screen: logo, controls and super powers. The first tap / click / key also starts the music. */
 export class StartScene {
-	image = document.getElementById('Controls');
 	logoImg = document.getElementById('Logo');
-
-	text = isTouchDevice() ? 'TAP ANYWHERE TO START' : 'CLICK ANYWHERE TO START';
-	repeatTime = 3;
-	position = 10;
+	touch = isTouchDevice();
+	room = roomFromUrl();
+	text = this.room
+		? `${isTouchDevice() ? 'TAP' : 'CLICK'} TO JOIN YOUR FRIEND'S GAME`
+		: `${isTouchDevice() ? 'TAP' : 'CLICK'} ANYWHERE TO START`;
 	logoFlash = false;
 	flashTimer = 0;
-	brightness = 0;
-	contrast = 3;
+	t = 0;
 	sceneEnded = false;
 
-	endStartScene = () => {
+	endStartScene = (e) => {
 		if (this.sceneEnded) return;
+		if (e?.type === 'keydown' && !['Enter', 'Space'].includes(e.code)) return;
 		this.sceneEnded = true;
-		this.changeScene(SelectScene);
+		Audio.unlock();
+		Audio.click();
+		this.changeScene(this.room ? NetLobbyScene : MenuScene);
 	};
 
 	destroy = () => {
 		window.removeEventListener('click', this.endStartScene);
+		window.removeEventListener('keydown', this.endStartScene);
 	};
 
 	constructor(changeScene) {
 		this.changeScene = changeScene;
-		window.removeEventListener('click', this.endStartScene);
 		window.addEventListener('click', this.endStartScene);
-		// Start music on title
-		const music = document.getElementById('kensTheme');
-		if (music) {
-			music.volume = 0.35;
-			music.loop = true;
-			music.play().catch(() => {});
-		}
+		window.addEventListener('keydown', this.endStartScene);
+		Audio.playMusic('title'); // starts as soon as the browser allows sound (first tap / click / key)
 	}
 
 	updateLogo = (time) => {
@@ -45,78 +47,34 @@ export class StartScene {
 		this.logoFlash = !this.logoFlash;
 	};
 
-	updateTextPosition = (time) => {
-		this.position -= time.secondsPassed * 100;
-	};
-
 	update = (time) => {
+		this.t += time.secondsPassed;
 		this.updateLogo(time);
-		this.updateTextPosition(time);
 	};
 
-	drawText = (context) => {
-		context.fillStyle = 'white';
-		context.font = '12px Arial';
-		const textWidth = context.measureText(this.text).width;
-
-		for (let i = 0; i < this.repeatTime; i++) {
-			context.fillText(this.text, this.position + i * (textWidth + 30), 18);
-		}
-
-		if (this.position < (-textWidth + -30) * this.repeatTime) {
-			this.position = SCENE_WIDTH;
-		}
-	};
-
-			drawLogo = (context) => {
+	drawLogo = (context) => {
 		if (!this.logoImg || !this.logoImg.complete) return;
 		context.imageSmoothingEnabled = true;
-		// Draw the Maltese Fighters logo (Street-Fighter style)
-		const scale = 1.2;
+		const scale = 0.85 + Math.sin(this.t * 3) * 0.015;
 		const w = (this.logoImg.naturalWidth / 3) * scale; // logo.png is stored at 3x
 		const h = (this.logoImg.naturalHeight / 3) * scale;
-		const x = (SCENE_WIDTH - w) / 2;
-		const y = 8;
-		if (this.logoFlash) {
-			context.globalAlpha = 0.7;
-		}
-		context.drawImage(this.logoImg, x, y, w, h);
+		context.globalAlpha = this.logoFlash ? 0.8 : 1;
+		context.drawImage(this.logoImg, (SCENE_WIDTH - w) / 2, 4, w, h);
 		context.imageSmoothingEnabled = false;
 		context.globalAlpha = 1;
 	};
 
-	drawTouchHelp = (context) => {
-		const lines = [
-			['D-PAD', 'move / jump / crouch  (slide for diagonals)'],
-			['LP  MP  HP', 'light / medium / heavy punch'],
-			['LK  MK  HK', 'light / medium / heavy kick'],
-			['MELA!', 'one tap = special move'],
-		];
-		context.save();
-		context.textAlign = 'left';
-		lines.forEach(([a, b], i) => {
-			const y = 112 + i * 24;
-			context.font = '900 11px "Arial Black", Impact, sans-serif';
-			context.fillStyle = '#ffcc00';
-			context.fillText(a, 28, y);
-			context.font = '700 9px system-ui, sans-serif';
-			context.fillStyle = '#ffffff';
-			context.fillText(b, 28, y + 10);
-		});
-		context.restore();
-	};
-
 	draw = (context) => {
-		if (isTouchDevice()) {
-			context.fillStyle = '#000';
-			context.fillRect(0, 0, SCENE_WIDTH, 224);
-			this.drawLogo(context);
-			this.drawTouchHelp(context);
-			this.drawText(context);
-			return;
-		}
-		context.drawImage(this.image, 0, 0);
+		drawBackdrop(context, this.t);
 		this.drawLogo(context);
-		this.drawText(context);
+		context.fillStyle = 'rgba(0,0,0,.35)';
+		context.fillRect(10, 72, SCENE_WIDTH - 20, 66);
+		drawMoveList(context, this.touch, 16, 86);
+		const pulse = 0.55 + 0.45 * Math.abs(Math.sin(this.t * 3));
+		context.globalAlpha = pulse;
+		outlinedText(context, this.text, SCENE_WIDTH / 2, 166, 12, '#ffcc00', '#5a0a10');
+		context.globalAlpha = 1;
+		outlinedText(context, 'PLAY THE CPU  •  OR FIGHT A FRIEND ONLINE WITH A LINK', SCENE_WIDTH / 2, 186, 7, '#b8c4ff', '#0a1030', 'center', 700);
+		if (!Audio.unlocked) outlinedText(context, '♪ music starts on your first tap / click', SCENE_WIDTH / 2, 212, 6.5, '#8c98cc', '#0a1030', 'center', 700);
 	};
 }

@@ -12,6 +12,8 @@ import {
 } from '../constants/fighter.js';
 import { HEALTH_MAX_HIT_POINTS } from '../constants/battle.js';
 import { FRAME_TIME } from '../constants/game.js';
+import { CONTROL_ORDER, Control } from '../constants/controls.js';
+import { SPECIALS, SPECIAL_ORDER } from '../constants/specials.js';
 import { Camera } from '../engine/Camera.js';
 import { EntityList } from '../engine/EntityList.js';
 import { Lou, Ganni, Karmenu } from '../entitites/fighters/index.js';
@@ -23,20 +25,35 @@ import {
 } from '../entitites/fighters/shared/index.js';
 import { FpsCounter } from '../entitites/overlays/FpsCounter.js';
 import { StatusBar } from '../entitites/overlays/StatusBar.js';
-import { ValletaStage } from '../entitites/stage/ValletaStage.js';
+import { MaltaStage } from '../entitites/stage/MaltaStage.js';
 import { gameState, ROUNDS_TO_WIN, isLastStage } from '../states/gameState.js';
 import { SimpleAI } from '../engine/SimpleAI.js';
-import { setAIHeld, setInputEnabled } from '../engine/InputHandler.js';
+import { clearSimHeld, sampleLocalHeld, setAIHeld, setInputEnabled, setSimHeld } from '../engine/InputHandler.js';
 import { TouchControls } from '../engine/TouchControls.js';
+import { Audio } from '../engine/Audio.js';
+import { Net } from '../engine/Net.js';
+import { isTouchDevice } from '../utils/pointer.js';
 import { InterludeScene } from './InterludeScene.js';
+import { NetLobbyScene } from './NetLobbyScene.js';
 
 const INTRO_TIME = 2.1; // "ROUND n" + "FIGHT!"
 const ROUND_END_TIME = 3.0;
 const MATCH_END_TIME = 2.8;
 
+// ---- online lockstep
+const TICK = 1 / 60;
+const SNAPSHOT_EVERY = 30; // ticks between host -> guest drift checks
+const BUTTON_PULSE = 4; // a button press is held for this many ticks so no state machine can miss it
+const DIRECTIONS = new Set([Control.LEFT, Control.RIGHT, Control.UP, Control.DOWN]);
+const pack = (held) => CONTROL_ORDER.reduce((bits, c, i) => (held.has(c) ? bits | (1 << i) : bits), 0);
+const unpack = (bits) => new Set(CONTROL_ORDER.filter((c, i) => bits & (1 << i)));
+
 /**
  * One fight = best of three rounds: two rounds are always played, a third decides it only if they are level.
  * phases: intro -> fight -> roundEnd -> (intro again | matchEnd)
+ *
+ * Single player: player 0 = you (keyboard / touch / gamepad), player 1 = the CPU.
+ * Online: both players are humans; both browsers run this exact simulation tick by tick (lockstep).
  */
 export class BattleScene {
 	fighters = [];
@@ -54,20 +71,27 @@ export class BattleScene {
 
 	constructor(changeScene) {
 		this.changeScene = changeScene;
-		this.stage = new ValletaStage();
+		this.net = gameState.net; // null in single player
+		this.localIndex = this.net ? this.net.localIndex : 0;
+		this.touch = isTouchDevice();
+		this.stage = new MaltaStage(gameState.arena);
 		this.entities = new EntityList();
 		this.fpsCounter = new URLSearchParams(window.location.search).has('debug')
 			? new FpsCounter()
 			: null;
 		this.overlays = [];
+		if (this.net) this.initNet();
+		Audio.playMusic('fight');
 		TouchControls.show();
 		this.startRound();
+		if (new URLSearchParams(window.location.search).has('debug')) window.__battle = this;
 	}
 
 	destroy = () => {
 		TouchControls.hide();
-		setAIHeld(new Set());
+		clearSimHeld();
 		setInputEnabled(true);
+		this.unsubscribeNet?.();
 	};
 
 	// -------------------------------------------------------------------------------- setup
@@ -108,8 +132,7 @@ export class BattleScene {
 		this.fighters = this.getFighterEntities();
 		this.FighterDrawOrder = [0, 1];
 		this.hurtTimer = 0;
-		const level = gameState.session.stage;
-		this.ai = new SimpleAI(this.fighters[1], this.fighters[0], level);
+		if (!this.net) this.ai = new SimpleAI(this.fighters[1], this.fighters[0], gameState.session.stage);
 		this.camera = new Camera(
 			STAGE_PADDING + STAGE_MID_POINT - SCENE_WIDTH / 2,
 			16,
@@ -122,8 +145,15 @@ export class BattleScene {
 		this.phase = 'intro';
 		this.phaseTime = 0;
 		this.banner = null;
-		setAIHeld(new Set());
+		if (this.net) {
+			setSimHeld(0, new Set());
+			setSimHeld(1, new Set());
+		} else {
+			setSimHeld(0, null);
+			setAIHeld(new Set());
+		}
 		setInputEnabled(false);
+		Audio.bell();
 	};
 
 	// -------------------------------------------------------------------------------- combat
@@ -148,13 +178,12 @@ export class BattleScene {
 		}
 	};
 
-	handleAttackHit = (time, playerId, opponentId, position, strength) => {
+	handleAttackHit = (time, playerId, opponentId, position, strength, damage) => {
 		if (this.phase !== 'fight') return; // no damage during intros / after the bell
 		this.FighterDrawOrder = [opponentId, playerId];
 		gameState.fighters[playerId].score += FighterAttackBaseData[strength].score;
 
-		gameState.fighters[opponentId].hitPoints -=
-			FighterAttackBaseData[strength].damage;
+		gameState.fighters[opponentId].hitPoints -= damage ?? FighterAttackBaseData[strength].damage;
 
 		const HitSplashClass = this.getHitSplashClass(strength);
 
@@ -191,7 +220,8 @@ export class BattleScene {
 		this.phase = 'roundEnd';
 		this.phaseTime = 0;
 		setInputEnabled(false);
-		setAIHeld(new Set());
+		if (!this.net) setAIHeld(new Set());
+		if (reason !== 'TIME OVER') Audio.ko();
 
 		if (winner === null) {
 			this.banner = { text: reason, sub: 'DRAW' };
@@ -215,7 +245,7 @@ export class BattleScene {
 		if (this.round < 2) return null; // two rounds are always played
 		if (a !== b) return a > b ? 0 : 1;
 		if (this.round < 3) return null; // level after two rounds -> deciding third round
-		// still level after the deciding round (draw): the better fighter on points takes it, ties go to the player
+		// still level after the deciding round (draw): the better fighter on points takes it, ties go to player 1
 		const [sa, sb] = gameState.fighters.map((f) => f.score);
 		return sb > sa ? 1 : 0;
 	};
@@ -230,9 +260,16 @@ export class BattleScene {
 		this.phase = 'matchEnd';
 		this.phaseTime = 0;
 		TouchControls.hide();
-		this.matchResult = winner === 0 ? 'win' : 'lose';
+		const won = winner === this.localIndex;
+		this.matchResult = won ? 'win' : 'lose';
+		Audio.jingle(won);
 		// the career state is only advanced when we leave, so the HUD keeps showing the current stage
 		this.commitMatch = () => {
+			if (this.net) {
+				this.net.wins[winner] += 1;
+				this.net.lastResult = this.matchResult;
+				return;
+			}
 			const s = gameState.session;
 			if (winner === 0) {
 				s.score = gameState.fighters[0].score;
@@ -247,13 +284,14 @@ export class BattleScene {
 		};
 		const name = gameState.fighters[winner].id.toUpperCase();
 		this.banner = {
-			text: winner === 0 ? 'YOU WIN!' : 'YOU LOSE',
-			sub: winner === 0 ? `${name} TAKES THE FIGHT` : `${name} TAKES THE FIGHT`,
+			text: won ? 'YOU WIN!' : 'YOU LOSE',
+			sub: `${name} TAKES THE FIGHT`,
 		};
 	};
 
-	// -------------------------------------------------------------------------------- loop
-	update = (time) => {
+	// -------------------------------------------------------------------------------- simulation
+	/** One step of the fight. Single player: once per screen frame. Online: once per 1/60 s tick. */
+	simulate = (time) => {
 		const dt = time.secondsPassed;
 		this.phaseTime += dt;
 
@@ -263,16 +301,17 @@ export class BattleScene {
 				this.phaseTime = 0;
 				this.statusBar.resume(time);
 				setInputEnabled(true);
+				Audio.fightStab();
 			}
 		} else if (this.phase === 'fight') {
-			setAIHeld(this.ai.getHeldControls(time));
+			if (!this.net) setAIHeld(this.ai.getHeldControls(time));
 		} else if (this.phase === 'roundEnd') {
 			if (this.phaseTime >= ROUND_END_TIME) this.nextAfterRoundEnd();
 		} else if (this.phase === 'matchEnd') {
 			if (this.phaseTime >= MATCH_END_TIME && !this.leaving) {
 				this.leaving = true;
 				this.commitMatch();
-				this.changeScene(InterludeScene);
+				this.changeScene(this.net ? NetLobbyScene : InterludeScene);
 			}
 		}
 
@@ -283,6 +322,129 @@ export class BattleScene {
 		this.camera.update(time);
 		this.overlays.map((overlay) => overlay.update(time));
 		if (this.phase === 'fight') this.checkKo(time);
+	};
+
+	update = (time) => {
+		if (this.net) this.stepNet(time);
+		else this.simulate(time);
+	};
+
+	// -------------------------------------------------------------------------------- online lockstep
+	initNet() {
+		this.tick = 0;
+		this.acc = 0;
+		this.delay = this.net.delay || 4;
+		this.lastSent = this.delay - 1; // ticks before `delay` have no input on either side
+		this.localInputs = new Map();
+		this.prevHeld = new Set();
+		this.pulse = {};
+		this.hist = new Map();
+		this.stallSince = null;
+		this.desyncs = 0;
+		this.netLost = false;
+		this.lostTime = 0;
+		this.unsubscribeNet = Net.on((type) => {
+			if (type === 'closed') this.netLost = true;
+		});
+	}
+
+	/** What this device's player is pressing, as input bits (button presses become short pulses). */
+	sampleLocalBits() {
+		const held = sampleLocalHeld();
+		const out = new Set();
+		for (const c of CONTROL_ORDER) {
+			if (DIRECTIONS.has(c)) {
+				if (held.has(c)) out.add(c);
+				continue;
+			}
+			if (held.has(c) && !this.prevHeld.has(c)) this.pulse[c] = BUTTON_PULSE;
+			if (this.pulse[c] > 0) {
+				out.add(c);
+				this.pulse[c] -= 1;
+			}
+		}
+		this.prevHeld = held;
+		return pack(out);
+	}
+
+	sendLocalInput() {
+		const k = this.tick + this.delay;
+		if (k <= this.lastSent) return;
+		const bits = this.sampleLocalBits();
+		this.localInputs.set(k, bits);
+		Net.send({ t: 'i', m: Net.matchId, v: [[k, bits]] });
+		this.lastSent = k;
+	}
+
+	snapshot() {
+		const [a, b] = this.fighters;
+		const [ha, hb] = gameState.fighters;
+		return [this.round, a.position.x, a.position.y, ha.hitPoints, b.position.x, b.position.y, hb.hitPoints];
+	}
+
+	/** Guest: nudge any drift back to the host's numbers (same tick, same round only). */
+	applyHostSnapshots() {
+		for (const [k, host] of Net.snapshots) {
+			if (k > this.tick) continue;
+			Net.snapshots.delete(k);
+			const mine = this.hist.get(k);
+			if (!mine || mine[0] !== host[0] || host[0] !== this.round) continue;
+			const d = host.map((v, i) => v - mine[i]);
+			if (d.every((v) => Math.abs(v) < 1e-6)) continue;
+			this.desyncs += 1;
+			const [a, b] = this.fighters;
+			a.position.x += d[1];
+			a.position.y += d[2];
+			gameState.fighters[0].hitPoints += d[3];
+			b.position.x += d[4];
+			b.position.y += d[5];
+			gameState.fighters[1].hitPoints += d[6];
+		}
+	}
+
+	stepNet = (frameTime) => {
+		if (this.netLost) {
+			this.lostTime += frameTime.secondsPassed;
+			if (this.lostTime > 2.5 && !this.leaving) {
+				this.leaving = true;
+				this.changeScene(NetLobbyScene);
+			}
+			return;
+		}
+		this.acc = Math.min(this.acc + frameTime.secondsPassed, TICK * 12);
+		let steps = 0;
+		let stalled = false;
+		while (this.acc >= TICK - 1e-4 && steps < 4) {
+			this.sendLocalInput();
+			const t = this.tick;
+			const remote = t < this.delay ? 0 : Net.remoteInputs.get(t);
+			if (remote === undefined) {
+				stalled = true;
+				break;
+			}
+			const local = t < this.delay ? 0 : this.localInputs.get(t) ?? 0;
+			const bits = this.localIndex === 0 ? [local, remote] : [remote, local];
+			setSimHeld(0, unpack(bits[0]));
+			setSimHeld(1, unpack(bits[1]));
+
+			this.simulate({ secondsPassed: TICK, previous: t * FRAME_TIME });
+
+			if (t % SNAPSHOT_EVERY === 0) {
+				const s = this.snapshot();
+				this.hist.set(t, s);
+				if (this.net.role === 'host') Net.send({ t: 's', m: Net.matchId, k: t, s });
+			}
+			if (this.net.role === 'guest') this.applyHostSnapshots();
+			this.localInputs.delete(t);
+			Net.remoteInputs.delete(t);
+			this.hist.delete(t - SNAPSHOT_EVERY * 20);
+
+			this.tick += 1;
+			this.acc -= TICK;
+			steps += 1;
+		}
+		if (stalled) this.stallSince ??= performance.now();
+		else this.stallSince = null;
 	};
 
 	// -------------------------------------------------------------------------------- drawing
@@ -323,6 +485,45 @@ export class BattleScene {
 		}
 	}
 
+	/** The four super powers of each fighter, with their cooldown (and the key to press for you). */
+	drawSpecialIcons(context) {
+		for (let side = 0; side < 2; side++) {
+			const fighter = this.fighters[side];
+			if (!fighter?.cooldownLeft) continue;
+			const showKeys = side === this.localIndex && !this.touch;
+			SPECIAL_ORDER.forEach((kind, i) => {
+				const s = SPECIALS[kind];
+				const x = side === 0 ? 66 + i * 13 : 316 - i * 13;
+				const y = 52;
+				const left = fighter.cooldownLeft(kind);
+				context.save();
+				context.beginPath();
+				context.arc(x, y, 5, 0, Math.PI * 2);
+				context.fillStyle = left > 0 ? 'rgba(0,0,0,.55)' : s.color;
+				context.fill();
+				if (left > 0) {
+					context.beginPath();
+					context.moveTo(x, y);
+					context.arc(x, y, 5, -Math.PI / 2, -Math.PI / 2 + (1 - left) * Math.PI * 2);
+					context.closePath();
+					context.globalAlpha = 0.6;
+					context.fillStyle = s.color;
+					context.fill();
+					context.globalAlpha = 1;
+				}
+				context.lineWidth = 1;
+				context.strokeStyle = left > 0 ? 'rgba(255,255,255,.5)' : '#ffffff';
+				context.stroke();
+				context.font = '900 6px "Arial Black", Impact, sans-serif';
+				context.textAlign = 'center';
+				context.textBaseline = 'middle';
+				context.fillStyle = left > 0 ? 'rgba(255,255,255,.7)' : '#1a1020';
+				context.fillText(showKeys ? s.key : s.label[0], x, y + 0.5);
+				context.restore();
+			});
+		}
+	}
+
 	drawPhaseText(context) {
 		const t = this.phaseTime;
 		if (this.phase === 'intro') {
@@ -330,6 +531,8 @@ export class BattleScene {
 			if (t < 1.2) {
 				const pop = Math.min(1, t / 0.18);
 				this.drawBanner(context, label, 98, 22 + 6 * (1 - pop), '#ffffff');
+				const arena = this.stage.arena;
+				this.drawBanner(context, `${arena.name}  -  ${arena.sub.toUpperCase()}`, 114, 8, '#ffe9a0', Math.min(1, t * 3));
 			} else {
 				const pop = Math.min(1, (t - 1.2) / 0.15);
 				this.drawBanner(context, 'FIGHT!', 100, 28 + 10 * (1 - pop), '#ffe040');
@@ -345,6 +548,41 @@ export class BattleScene {
 		}
 	}
 
+	/** Online: a little "YOU" tag over your own fighter, and the connection status. */
+	drawNetInfo(context) {
+		const me = this.fighters[this.localIndex];
+		if (me && (this.phase === 'intro' || (this.phase === 'fight' && this.phaseTime < 3))) {
+			const x = Math.floor(me.position.x - this.camera.position.x);
+			const y = Math.floor(me.position.y - this.camera.position.y) - 104;
+			context.save();
+			context.fillStyle = '#35e0a0';
+			context.beginPath();
+			context.moveTo(x - 4, y);
+			context.lineTo(x + 4, y);
+			context.lineTo(x, y + 5);
+			context.fill();
+			context.restore();
+			this.drawLabel(context, 'YOU', x, y - 3, '#35e0a0');
+		}
+		if (this.netLost) {
+			this.drawBanner(context, 'FRIEND DISCONNECTED', 150, 13, '#ff6a6a');
+		} else if (this.stallSince && performance.now() - this.stallSince > 400) {
+			this.drawBanner(context, 'WAITING FOR YOUR FRIEND…', 150, 10, '#ffffff', 0.9);
+		}
+	}
+
+	drawLabel(context, text, x, y, color) {
+		context.save();
+		context.textAlign = 'center';
+		context.font = '900 7px "Arial Black", Impact, sans-serif';
+		context.lineWidth = 2.5;
+		context.strokeStyle = '#0a1030';
+		context.strokeText(text, x, y);
+		context.fillStyle = color;
+		context.fillText(text, x, y);
+		context.restore();
+	}
+
 	draw = (context) => {
 		this.stage.drawBackground(context, this.camera);
 		this.shadows.map((shadow) => shadow.draw(context, this.camera));
@@ -353,6 +591,9 @@ export class BattleScene {
 		this.stage.drawForeground(context, this.camera);
 		this.overlays.map((overlay) => overlay.draw(context, this.camera));
 		this.drawRoundMarkers(context);
+		this.drawSpecialIcons(context);
 		this.drawPhaseText(context);
+		if (this.net) this.drawNetInfo(context);
+		TouchControls.updateCooldowns(this.fighters[this.localIndex]);
 	};
 }

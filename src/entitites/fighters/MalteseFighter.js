@@ -8,16 +8,53 @@ import {
 	HurtBox,
 	PushBox,
 } from '../../constants/fighter.js';
-import { ControlHistory } from '../../engine/ControlHistory.js';
-import { playMela } from '../../engine/SoundHandler.js';
+import { HEALTH_MAX_HIT_POINTS } from '../../constants/battle.js';
+import { SPECIALS, SpecialKind, specialOfState, stateOfSpecial } from '../../constants/specials.js';
+import { Audio, shout } from '../../engine/Audio.js';
+import * as control from '../../engine/InputHandler.js';
+import { gameState } from '../../states/gameState.js';
 import { Fighter } from './Fighter.js';
+import { Pastizz } from './special/Pastizz.js';
+import { Uwejja } from './special/Uwejja.js';
+import { RicottaHeal } from './special/RicottaHeal.js';
+
+const PUNCHES = [SpecialMovesControls.LIGHT_PUNCH, SpecialMovesControls.MEDIUM_PUNCH, SpecialMovesControls.HEAVY_PUNCH];
+const KICKS = [SpecialMovesControls.LIGHT_KICK, SpecialMovesControls.MEDIUM_KICK, SpecialMovesControls.HEAVY_KICK];
+
+/** What the fighter shouts for each super power (spoken by the browser voice). */
+const SPOKEN = {
+	[SpecialKind.MELA]: 'Mela!',
+	[SpecialKind.PASTIZZI]: 'Pastizzi!',
+	[SpecialKind.UWEJJA]: 'Uwejja!',
+	[SpecialKind.RICOTTA]: 'Ricotta!',
+};
+
+// a special can interrupt standing, walking, crouching and the first button of its own motion
+const SPECIAL_VALID_FROM = [
+	FighterState.IDLE,
+	FighterState.IDLE_TURN,
+	FighterState.WALK_FORWARD,
+	FighterState.WALK_BACKWARD,
+	FighterState.CROUCH_UP,
+	FighterState.CROUCH_DOWN,
+	FighterState.CROUCH,
+	FighterState.CROUCH_TURN,
+	FighterState.LIGHT_PUNCH,
+	FighterState.MEDIUM_PUNCH,
+	FighterState.HEAVY_PUNCH,
+	FighterState.LIGHT_KICK,
+	FighterState.MEDIUM_KICK,
+	FighterState.HEAVY_KICK,
+];
 
 /**
  * Shared moveset for every Maltese fighter (same states, animation timings, push/hurt boxes,
  * controls and special-move input as the classic 2D-fighter template). Each concrete fighter
- * only supplies its own artwork (`cfg.sheet`) and its "MELA!" projectile (`cfg.Projectile`).
+ * only supplies its own artwork (`cfg.sheet`), its MELA orb (`cfg.Projectile`) and its voice.
  *
- * cfg = { imageId, sheet, Projectile, voice, special: { LIGHT, MEDIUM, HEAVY } (callout subtitles) }
+ * Four super powers: MELA (orb), PASTIZZI (lobbed volley), UWEJJA (shockwave), RICOTTA (heal).
+ *
+ * cfg = { imageId, sheet, Projectile, voice, special: { mela, pastizzi, uwejja, ricotta } (callout subtitles) }
  */
 export class MalteseFighter extends Fighter {
 	callout = null;
@@ -1265,6 +1302,28 @@ export class MalteseFighter extends Fighter {
 			['special-4', FrameDelay.TRANSITION],
 		],
 
+		[FighterState.SPECIAL_PASTIZZI]: [
+			['special-1', 3],
+			['special-2', 8],
+			['special-3', 3],
+			['special-4', 34],
+			['special-4', FrameDelay.TRANSITION],
+		],
+		[FighterState.SPECIAL_UWEJJA]: [
+			['special-1', 2],
+			['special-2', 5],
+			['special-3', 2],
+			['special-4', 32],
+			['special-4', FrameDelay.TRANSITION],
+		],
+		[FighterState.SPECIAL_RICOTTA]: [
+			['special-1', 4],
+			['special-2', 10],
+			['victory-3', 22],
+			['victory-4', 10],
+			['victory-4', FrameDelay.TRANSITION],
+		],
+
 		[FighterState.VICTORY]: [
 			['idle-1', 60],
 			['victory-1', 20],
@@ -1285,36 +1344,34 @@ export class MalteseFighter extends Fighter {
 	};
 
 	specialMoves = [
-		{
-			state: FighterState.SPECIAL_1_LIGHT,
-			sequence: [
-				SpecialMovesControls.DOWN,
-				SpecialMovesControls.FORWARD_DOWN,
-				SpecialMovesControls.FORWARD,
-				SpecialMovesControls.LIGHT_PUNCH,
-			],
+		// MELA!  down, down-forward, forward + punch (strength = orb speed)
+		...[
+			[FighterState.SPECIAL_1_LIGHT, SpecialMovesControls.LIGHT_PUNCH],
+			[FighterState.SPECIAL_1_MEDIUM, SpecialMovesControls.MEDIUM_PUNCH],
+			[FighterState.SPECIAL_1_HEAVY, SpecialMovesControls.HEAVY_PUNCH],
+		].map(([state, button]) => ({
+			state,
+			sequence: [SpecialMovesControls.DOWN, SpecialMovesControls.FORWARD_DOWN, SpecialMovesControls.FORWARD, button],
 			cursor: 0,
-		},
-		{
-			state: FighterState.SPECIAL_1_MEDIUM,
-			sequence: [
-				SpecialMovesControls.DOWN,
-				SpecialMovesControls.FORWARD_DOWN,
-				SpecialMovesControls.FORWARD,
-				SpecialMovesControls.MEDIUM_PUNCH,
-			],
+		})),
+		// PASTIZZI!  down, down-back, back + punch
+		...PUNCHES.map((button) => ({
+			state: FighterState.SPECIAL_PASTIZZI,
+			sequence: [SpecialMovesControls.DOWN, SpecialMovesControls.BACKWARD_DOWN, SpecialMovesControls.BACKWARD, button],
 			cursor: 0,
-		},
-		{
-			state: FighterState.SPECIAL_1_HEAVY,
-			sequence: [
-				SpecialMovesControls.DOWN,
-				SpecialMovesControls.FORWARD_DOWN,
-				SpecialMovesControls.FORWARD,
-				SpecialMovesControls.HEAVY_PUNCH,
-			],
+		})),
+		// UWEJJA!  down, down-forward, forward + kick
+		...KICKS.map((button) => ({
+			state: FighterState.SPECIAL_UWEJJA,
+			sequence: [SpecialMovesControls.DOWN, SpecialMovesControls.FORWARD_DOWN, SpecialMovesControls.FORWARD, button],
 			cursor: 0,
-		},
+		})),
+		// RICOTTA!  down, down-back, back + kick
+		...KICKS.map((button) => ({
+			state: FighterState.SPECIAL_RICOTTA,
+			sequence: [SpecialMovesControls.DOWN, SpecialMovesControls.BACKWARD_DOWN, SpecialMovesControls.BACKWARD, button],
+			cursor: 0,
+		})),
 	];
 
 	initialVelocity = {
@@ -1330,6 +1387,15 @@ export class MalteseFighter extends Fighter {
 
 	gravity = 1000;
 
+	/** game time (ms) at which each super power is ready again */
+	cooldownUntil = {
+		[SpecialKind.MELA]: 0,
+		[SpecialKind.PASTIZZI]: 0,
+		[SpecialKind.UWEJJA]: 0,
+		[SpecialKind.RICOTTA]: 0,
+	};
+	lastTime = 0;
+
 	constructor(playerId, onAttackHit, entityList, cfg) {
 		super(playerId, onAttackHit, entityList);
 		this.cfg = cfg;
@@ -1337,66 +1403,28 @@ export class MalteseFighter extends Fighter {
 		this.spriteScale = cfg.sheet.scale;
 		this.applySheet(cfg.sheet);
 
-		this.states[FighterState.SPECIAL_1_LIGHT] = {
-			attackStrength: FighterAttackStrength.LIGHT,
+		const special = (attackStrength) => ({
+			attackStrength,
 			init: this.handleSpecialInit,
 			update: this.handleSpecial,
 			shadow: [1.6, 1, 22, 0],
-			validFrom: [
-				FighterState.IDLE,
-				FighterState.IDLE_TURN,
-				FighterState.WALK_FORWARD,
-				FighterState.CROUCH_UP,
-				FighterState.CROUCH_DOWN,
-				FighterState.CROUCH,
-				FighterState.CROUCH_TURN,
-				FighterState.LIGHT_PUNCH,
-				FighterState.MEDIUM_PUNCH,
-				FighterState.HEAVY_PUNCH,
-			],
-		};
-		this.states[FighterState.SPECIAL_1_MEDIUM] = {
-			attackStrength: FighterAttackStrength.MEDIUM,
-			init: this.handleSpecialInit,
-			update: this.handleSpecial,
-			shadow: [1.6, 1, 22, 0],
-			validFrom: [
-				FighterState.IDLE,
-				FighterState.IDLE_TURN,
-				FighterState.WALK_FORWARD,
-				FighterState.CROUCH_UP,
-				FighterState.CROUCH_DOWN,
-				FighterState.CROUCH,
-				FighterState.CROUCH_TURN,
-				FighterState.LIGHT_PUNCH,
-				FighterState.MEDIUM_PUNCH,
-				FighterState.HEAVY_PUNCH,
-			],
-		};
-		this.states[FighterState.SPECIAL_1_HEAVY] = {
-			attackStrength: FighterAttackStrength.HEAVY,
-			init: this.handleSpecialInit,
-			update: this.handleSpecial,
-			shadow: [1.6, 1, 22, 0],
-			validFrom: [
-				FighterState.IDLE,
-				FighterState.IDLE_TURN,
-				FighterState.WALK_FORWARD,
-				FighterState.CROUCH_UP,
-				FighterState.CROUCH_DOWN,
-				FighterState.CROUCH,
-				FighterState.CROUCH_TURN,
-				FighterState.LIGHT_PUNCH,
-				FighterState.MEDIUM_PUNCH,
-				FighterState.HEAVY_PUNCH,
-			],
-		};
+			validFrom: SPECIAL_VALID_FROM,
+		});
+		this.states[FighterState.SPECIAL_1_LIGHT] = special(FighterAttackStrength.LIGHT);
+		this.states[FighterState.SPECIAL_1_MEDIUM] = special(FighterAttackStrength.MEDIUM);
+		this.states[FighterState.SPECIAL_1_HEAVY] = special(FighterAttackStrength.HEAVY);
+		this.states[FighterState.SPECIAL_PASTIZZI] = special(FighterAttackStrength.LIGHT);
+		this.states[FighterState.SPECIAL_UWEJJA] = special(FighterAttackStrength.HEAVY);
+		this.states[FighterState.SPECIAL_RICOTTA] = special(FighterAttackStrength.LIGHT);
 
 		this.states[FighterState.IDLE].validFrom = [
 			...this.states[FighterState.IDLE].validFrom,
 			FighterState.SPECIAL_1_LIGHT,
 			FighterState.SPECIAL_1_MEDIUM,
 			FighterState.SPECIAL_1_HEAVY,
+			FighterState.SPECIAL_PASTIZZI,
+			FighterState.SPECIAL_UWEJJA,
+			FighterState.SPECIAL_RICOTTA,
 		];
 	}
 
@@ -1419,22 +1447,60 @@ export class MalteseFighter extends Fighter {
 		this.setAnimationFrame(0, { previous: 0 });
 	};
 
+	// ---------------------------------------------------------------------------- super powers
+	/** 0 = ready ... 1 = just used */
+	cooldownLeft = (kind) => {
+		const left = this.cooldownUntil[kind] - this.lastTime;
+		return left <= 0 ? 0 : Math.min(1, left / SPECIALS[kind].cooldown);
+	};
+
+	/** Start a special (from a one-touch button or a motion input) if it is off cooldown and allowed now. */
+	startSpecial = (state, time) => {
+		const kind = specialOfState(state);
+		if (!kind) return this.changeState(state, time);
+		if (time.previous < this.cooldownUntil[kind]) return;
+		if (!this.states[state].validFrom.includes(this.currentState)) return;
+		this.changeState(state, time);
+		if (this.currentState === state) this.cooldownUntil[kind] = time.previous + SPECIALS[kind].cooldown;
+	};
+
 	handleSpecialInit = () => {
 		this.resetVelocities();
 		this.fireballFired = false;
-		playMela(this.cfg.voice);
+		const kind = specialOfState(this.currentState);
+		Audio.zap(kind, this.cfg.voice?.pitch ?? 1);
+		shout(SPOKEN[kind], this.cfg.voice);
+	};
+
+	fireSpecial = (kind, attackStrength, time) => {
+		const spec = SPECIALS[kind];
+		if (kind === SpecialKind.MELA) {
+			this.entityList.add(this.cfg.Projectile, this, attackStrength, time);
+		} else if (kind === SpecialKind.PASTIZZI) {
+			for (let i = 0; i < 3; i++) this.entityList.add(Pastizz, this, FighterAttackStrength.LIGHT, time, i);
+		} else if (kind === SpecialKind.UWEJJA) {
+			this.entityList.add(Uwejja, this, FighterAttackStrength.HEAVY, time);
+		} else if (kind === SpecialKind.RICOTTA) {
+			const me = gameState.fighters[this.playerId];
+			const healed = Math.min(HEALTH_MAX_HIT_POINTS, me.hitPoints + spec.heal) - me.hitPoints;
+			me.hitPoints += Math.max(0, healed);
+			this.entityList.add(RicottaHeal, this, Math.max(0, Math.round(healed)));
+		}
+		this.callout = {
+			text: spec.label,
+			sub: this.cfg.special?.[kind] ?? '',
+			color: spec.color,
+			age: 0,
+		};
 	};
 
 	handleSpecial = (time) => {
+		const kind = specialOfState(this.currentState);
 		const { attackStrength } = this.states[this.currentState];
-		if (this.animationFrame === 3 && !this.fireballFired) {
-			this.entityList.add(this.cfg.Projectile, this, attackStrength, time);
+		const fireFrame = kind === SpecialKind.RICOTTA ? 2 : 3;
+		if (this.animationFrame === fireFrame && !this.fireballFired) {
 			this.fireballFired = true;
-			this.callout = {
-				text: 'MELA!',
-				sub: this.cfg.special?.[attackStrength] ?? '',
-				age: 0,
-			};
+			this.fireSpecial(kind, attackStrength, time);
 		}
 
 		if (!this.isAnimationCompleted()) return;
@@ -1442,10 +1508,13 @@ export class MalteseFighter extends Fighter {
 		this.changeState(FighterState.IDLE, time);
 	};
 
-	// floating "MELA!" shout above the fighter's head while the special flies
+	// one-touch specials + the floating shout above the fighter's head
 	update = (() => {
 		const base = this.update;
 		return (time, camera) => {
+			this.lastTime = time.previous;
+			const pressed = control.getSpecialPressed(this.playerId);
+			if (pressed) this.startSpecial(stateOfSpecial[pressed], time);
 			base(time, camera);
 			if (this.callout) {
 				this.callout.age += time.secondsPassed;
@@ -1468,7 +1537,7 @@ export class MalteseFighter extends Fighter {
 			context.lineWidth = 4;
 			context.strokeStyle = '#2a0a0a';
 			context.strokeText(this.callout.text, x, y);
-			context.fillStyle = this.callout.age % 0.2 < 0.1 ? '#ffe040' : '#ffffff';
+			context.fillStyle = this.callout.age % 0.2 < 0.1 ? this.callout.color : '#ffffff';
 			context.fillText(this.callout.text, x, y);
 			if (this.callout.sub) {
 				context.font = 'bold 7px monospace';

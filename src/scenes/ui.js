@@ -1,4 +1,5 @@
 import { SCENE_WIDTH } from '../constants/Stage.js';
+import { SPECIALS, SPECIAL_ORDER } from '../constants/specials.js';
 
 export const FONT = '"Arial Black", Impact, "Segoe UI", sans-serif';
 
@@ -85,7 +86,59 @@ export const drawBackdrop = (context, t = 0) => {
 	context.restore();
 };
 
-export const drawPortrait = (context, id, x, y, size, { dim = 0, border = '#fff', bg } = {}) => {
+/** Controls + the four super powers, for the title screen and the versus screen. */
+export const drawMoveList = (context, touch, x, y, compact = false) => {
+	const gap = compact ? 11 : 13;
+	const basics = touch
+		? [
+				['D-PAD', 'move / jump / crouch'],
+				['LP MP HP', 'punches'],
+				['LK MK HK', 'kicks'],
+		  ]
+		: [
+				['← → ↑ ↓', 'move / jump / crouch'],
+				['A  S  D', 'light / medium / heavy punch'],
+				['Z  X  C', 'light / medium / heavy kick'],
+				['F  •  M', 'full screen  •  sound on/off'],
+		  ];
+	context.save();
+	context.textAlign = 'left';
+	basics.forEach(([a, b], i) => {
+		const yy = y + i * gap;
+		context.font = `900 8px ${FONT}`;
+		context.fillStyle = '#ffcc00';
+		context.fillText(a, x, yy);
+		context.font = '700 7px system-ui, sans-serif';
+		context.fillStyle = '#ffffff';
+		context.fillText(b, x + 52, yy);
+	});
+	const sx = x + 170;
+	context.font = `900 8px ${FONT}`;
+	context.fillStyle = '#b8c4ff';
+	context.fillText(touch ? 'SUPER POWERS - one tap:' : 'SUPER POWERS - one key, or the motion:', sx, y);
+	SPECIAL_ORDER.forEach((kind, i) => {
+		const s = SPECIALS[kind];
+		const yy = y + (i + 1) * gap;
+		if (!touch) {
+			context.font = `900 8px ${FONT}`;
+			context.fillStyle = '#ffffff';
+			context.fillText(s.key, sx, yy);
+		}
+		context.font = `900 8px ${FONT}`;
+		context.fillStyle = s.color;
+		context.fillText(s.label, sx + (touch ? 0 : 10), yy);
+		context.font = '700 6.5px system-ui, sans-serif';
+		context.fillStyle = '#dfe6ff';
+		context.fillText(touch ? s.short : s.motion, sx + 69, yy);
+		if (!touch) {
+			context.fillStyle = '#8c98cc';
+			context.fillText(s.short, sx + 127, yy);
+		}
+	});
+	context.restore();
+};
+
+export const drawPortrait =(context, id, x, y, size, { dim = 0, border = '#fff', bg } = {}) => {
 	const info = FIGHTER_INFO[id];
 	const img = document.getElementById(info.portrait);
 	context.save();

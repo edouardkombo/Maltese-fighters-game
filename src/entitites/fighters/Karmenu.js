@@ -1,4 +1,4 @@
-import { FighterAttackStrength } from '../../constants/fighter.js';
+import { SpecialKind } from '../../constants/specials.js';
 import { MalteseFighter } from './MalteseFighter.js';
 import { KarmenuSheet } from './sheets/karmenu.js';
 import { Mela } from './special/Mela.js';
@@ -13,9 +13,10 @@ export class Karmenu extends MalteseFighter {
 			melaKind: 'karmenu',
 			voice: { pitch: 0.85, rate: 1.0 },
 			special: {
-				[FighterAttackStrength.LIGHT]: 'BUS IS LATE',
-				[FighterAttackStrength.MEDIUM]: 'NO CHANGE GIVEN',
-				[FighterAttackStrength.HEAVY]: 'FULL HORN',
+				[SpecialKind.MELA]: 'FULL HORN',
+				[SpecialKind.PASTIZZI]: 'NO CHANGE GIVEN',
+				[SpecialKind.UWEJJA]: 'THE BUS IS LATE!',
+				[SpecialKind.RICOTTA]: 'TEA BREAK',
 			},
 		});
 	}

@@ -1,19 +1,26 @@
-import { gameState } from '../states/gameState.js';
+import { controls } from '../config/controls.js';
+import { Control } from '../constants/controls.js';
+import { SPECIALS, SPECIAL_ORDER } from '../constants/specials.js';
 import { pressVirtual, releaseVirtual, releaseAllVirtual } from './InputHandler.js';
 import { isTouchDevice } from '../utils/pointer.js';
 
 // Virtual keys = Player 1's keyboard codes, so touch plays through the exact same input path.
+const KB = controls[0].keyboard;
 const K = {
-	left: 'KeyA',
-	right: 'KeyD',
-	up: 'KeyW',
-	down: 'KeyS',
-	lp: 'KeyQ',
-	mp: 'KeyE',
-	hp: 'KeyR',
-	lk: 'KeyF',
-	mk: 'KeyV',
-	hk: 'KeyG',
+	left: KB[Control.LEFT],
+	right: KB[Control.RIGHT],
+	up: KB[Control.UP],
+	down: KB[Control.DOWN],
+	lp: KB[Control.LIGHT_PUNCH],
+	mp: KB[Control.MEDIUM_PUNCH],
+	hp: KB[Control.HEAVY_PUNCH],
+	lk: KB[Control.LIGHT_KICK],
+	mk: KB[Control.MEDIUM_KICK],
+	hk: KB[Control.HEAVY_KICK],
+	mela: KB[Control.SPECIAL_MELA],
+	pastizzi: KB[Control.SPECIAL_PASTIZZI],
+	uwejja: KB[Control.SPECIAL_UWEJJA],
+	ricotta: KB[Control.SPECIAL_RICOTTA],
 };
 
 const el = (tag, cls, html = '') => {
@@ -24,14 +31,15 @@ const el = (tag, cls, html = '') => {
 };
 
 /**
- * On-screen controller: 8-way D-pad (slide your thumb for diagonals), 3 punches, 3 kicks and a one-tap MELA!.
+ * On-screen controller: 8-way D-pad (slide your thumb for diagonals), 3 punches, 3 kicks and the
+ * four one-tap super powers (MELA / PASTIZZI / UWEJJA / RICOTTA) with their cooldowns.
  * Built once, shown only during fights, and only on touch devices (or with ?touch in the URL).
  */
 class TouchControlsImpl {
 	root = null;
-	macroTimers = [];
 	dpadPointer = null;
 	enabled = isTouchDevice();
+	specialButtons = {};
 
 	build() {
 		if (this.root) return;
@@ -51,38 +59,37 @@ class TouchControlsImpl {
 		for (const t of ['pointerup', 'pointercancel', 'lostpointercapture'])
 			pad.addEventListener(t, (e) => this.padEnd(e));
 
-		// ---- action buttons
+		// ---- right hand: super powers on top, punches and kicks below
+		const right = el('div', 'tc-right-hand');
+		const specials = el('div', 'tc-specials');
+		for (const kind of SPECIAL_ORDER) {
+			const b = el('button', `tc-btn tc-sp tc-sp-${kind}`, `<span>${SPECIALS[kind].label.replace('!', '')}</span>`);
+			b.type = 'button';
+			b.setAttribute('aria-label', SPECIALS[kind].label);
+			this.bindButton(b, K[kind]);
+			specials.appendChild(b);
+			this.specialButtons[kind] = b;
+		}
+		right.appendChild(specials);
+
 		const actions = el('div', 'tc-actions');
 		const defs = [
-			['mela', 'MELA!', 'tc-mela', null],
-			['hp', 'HP', 'tc-p', K.hp],
-			['mp', 'MP', 'tc-p', K.mp],
 			['lp', 'LP', 'tc-p', K.lp],
-			['hk', 'HK', 'tc-k', K.hk],
-			['mk', 'MK', 'tc-k', K.mk],
+			['mp', 'MP', 'tc-p', K.mp],
+			['hp', 'HP', 'tc-p', K.hp],
 			['lk', 'LK', 'tc-k', K.lk],
+			['mk', 'MK', 'tc-k', K.mk],
+			['hk', 'HK', 'tc-k', K.hk],
 		];
 		for (const [id, label, cls, key] of defs) {
 			const b = el('button', `tc-btn ${cls} tc-${id}`, label);
 			b.type = 'button';
 			b.setAttribute('aria-label', label);
-			if (key) this.bindButton(b, key);
-			else this.bindMela(b);
+			this.bindButton(b, key);
 			actions.appendChild(b);
 		}
-		root.appendChild(actions);
-
-		// ---- fullscreen toggle (handy on phones)
-		const fs = el('button', 'tc-fs', '⛶');
-		fs.type = 'button';
-		fs.setAttribute('aria-label', 'Fullscreen');
-		fs.hidden = true;
-		fs.addEventListener('click', () => {
-			if (document.fullscreenElement) document.exitFullscreen?.();
-			else document.documentElement.requestFullscreen?.().catch(() => {});
-		});
-		document.body.appendChild(fs);
-		this.fs = fs;
+		right.appendChild(actions);
+		root.appendChild(right);
 
 		document.body.appendChild(root);
 		this.root = root;
@@ -148,37 +155,18 @@ class TouchControlsImpl {
 		this.pad.classList.remove('active');
 	}
 
-	// ---- one-tap special (down, down+forward, forward, punch) ---------------------------------------
-	bindMela(b) {
-		b.addEventListener('pointerdown', (e) => {
-			e.preventDefault();
-			b.classList.add('on');
-			setTimeout(() => b.classList.remove('on'), 160);
-			this.runMela();
-		});
-	}
-
-	runMela() {
-		if (this.macroTimers.length) return; // already running
-		const me = gameState.fighters[0]?.instance;
-		const fwd = me && me.direction < 0 ? K.left : K.right;
-		const steps = [
-			[0, [K.down]],
-			[90, [K.down, fwd]],
-			[180, [fwd]],
-			[270, [fwd, K.mp]],
-			[430, []],
-		];
-		for (const [t, keys] of steps) {
-			this.macroTimers.push(
-				setTimeout(() => {
-					for (const code of [K.down, K.left, K.right, K.mp]) {
-						if (keys.includes(code)) pressVirtual(code);
-						else releaseVirtual(code);
-					}
-					if (t === 430) this.macroTimers = [];
-				}, t)
-			);
+	/** Grey out the super powers that are cooling down (fighter = the local player's fighter). */
+	updateCooldowns(fighter) {
+		if (!this.root || this.root.hidden || !fighter?.cooldownLeft) return;
+		for (const kind of SPECIAL_ORDER) {
+			const left = fighter.cooldownLeft(kind);
+			const b = this.specialButtons[kind];
+			const v = left.toFixed(2);
+			if (b.dataset.cd !== v) {
+				b.dataset.cd = v;
+				b.style.setProperty('--cd', v);
+				b.classList.toggle('cooling', left > 0);
+			}
 		}
 	}
 
@@ -187,17 +175,13 @@ class TouchControlsImpl {
 		if (!this.enabled) return;
 		this.build();
 		this.root.hidden = false;
-		this.fs.hidden = !document.documentElement.requestFullscreen;
 		document.body.classList.add('tc-on');
 	}
 
 	hide() {
-		this.macroTimers.forEach(clearTimeout);
-		this.macroTimers = [];
 		releaseAllVirtual();
 		if (!this.root) return;
 		this.root.hidden = true;
-		this.fs.hidden = true;
 		document.body.classList.remove('tc-on');
 	}
 }

@@ -4,6 +4,8 @@ import { toLogical, getCanvas, isTouchDevice } from '../utils/pointer.js';
 import { BattleScene } from './BattleScene.js';
 import { SelectScene } from './SelectScene.js';
 import { FIGHTER_INFO, drawBackdrop, drawButton, drawPortrait, inRect, outlinedText } from './ui.js';
+import { ARENAS } from '../entitites/stage/MaltaStage.js';
+import { Audio } from '../engine/Audio.js';
 
 const AUTO_START = 4.5; // seconds before a "versus" screen starts the fight on its own
 
@@ -24,6 +26,7 @@ export class InterludeScene {
 		this.touch = isTouchDevice();
 		this.mode = gameState.session.mode;
 		if (this.mode === 'stage') prepareStage();
+		Audio.playMusic('title');
 		if (this.mode === 'champion') {
 			for (let i = 0; i < 70; i++)
 				this.confetti.push({
@@ -97,6 +100,8 @@ export class InterludeScene {
 		const me = s.playerId;
 		const foe = currentOpponent();
 		outlinedText(context, `STAGE ${s.stage + 1} / ${total}`, SCENE_WIDTH / 2, 30, 17, '#ffcc00', '#7a0a14');
+		const arena = ARENAS[gameState.arena];
+		outlinedText(context, `ARENA: ${arena.name} - ${arena.sub}`, SCENE_WIDTH / 2, 44, 7.5, '#b8c4ff', '#0a1030', 'center', 700);
 
 		const slide = Math.min(1, this.t / 0.45);
 		const ease = 1 - Math.pow(1 - slide, 3);

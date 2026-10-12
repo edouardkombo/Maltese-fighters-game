@@ -95,7 +95,7 @@ export class StatusBar {
 		['score-L', [161, 113, 10, 10]],
 		['score-M', [173, 113, 10, 10]],
 		['score-N', [185, 113, 11, 10]],
-		['score-0', [197, 113, 10, 10]],
+		['score-O', [197, 113, 10, 10]],
 		['score-P', [17, 125, 10, 10]],
 		['score-Q', [29, 125, 10, 10]],
 		['score-R', [41, 125, 10, 10]],
@@ -278,13 +278,18 @@ export class StatusBar {
 	}
 
 	drawScores(context) {
+		const net = gameState.net;
 		this.drawScoreLabel(context, 'P1', 4);
 		this.drawScore(context, gameState.fighters[0].score, 45);
 
-		this.drawScoreLabel(context, 'STAGE', 125);
-		this.drawScoreLabel(context, String(gameState.session.stage + 1), 189);
+		if (net) {
+			this.drawScoreLabel(context, 'ONLINE', 155);
+		} else {
+			this.drawScoreLabel(context, 'STAGE', 125);
+			this.drawScoreLabel(context, String(gameState.session.stage + 1), 189);
+		}
 
-		this.drawScoreLabel(context, 'CPU', 257);
+		this.drawScoreLabel(context, net ? 'P2' : 'CPU', 257);
 		this.drawScore(context, gameState.fighters[1].score, 309);
 	}
 

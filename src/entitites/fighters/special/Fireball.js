@@ -25,6 +25,8 @@ export class Fireball {
 	animations = { [FireballState.ACTIVE]: [], [FireballState.COLLIDED]: [] };
 
 	currentState = FireballState.ACTIVE;
+	damage = undefined; // undefined = the strength's base damage
+	knockback = 1;
 
 	constructor(fighter, strength, time, entities) {
 		this.fighter = fighter;
@@ -98,7 +100,9 @@ export class Fireball {
 			this.strength,
 			hurtArea,
 			FighterAttackType.PUNCH,
-			undefined
+			undefined,
+			this.damage,
+			this.knockback
 		);
 	};
 
@@ -153,7 +157,13 @@ export class Fireball {
 		);
 		//Other Fireballs
 		for (const entity of this.entities.entitiesList) {
-			if (entity instanceof Fireball && entity !== this) {
+			// a fighter's own projectiles never cancel each other (pastizzi fly in groups)
+			if (
+				entity instanceof Fireball &&
+				entity !== this &&
+				entity.fighter !== this.fighter &&
+				entity.currentState !== FireballState.COLLIDED
+			) {
 				const hasCollidedWithOtherFireball = this.hasCollidedWithOtherFireball(
 					actualFireballDimensions,
 					entity

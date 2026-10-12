@@ -8,6 +8,8 @@ import { BattleScene } from './scenes/BattleScene.js';
 import { GAME_SPEED } from './constants/game.js';
 import { StartScene } from './scenes/StartScene.js';
 import { ContextHandler } from './engine/ContextHandler.js';
+import { SCENE_HEIGHT, SCENE_WIDTH } from './constants/Stage.js';
+import { resetTransform } from './utils/context.js';
 
 export class StreetFighterGame {
 	context = getContext();
@@ -41,6 +43,12 @@ export class StreetFighterGame {
 	}
 
 	updateScenes = () => {
+		// start every frame from a clean canvas: nothing from the previous frame may survive
+		// (otherwise any spot a scene does not repaint keeps "ghost" images of the fighters)
+		resetTransform(this.context);
+		this.context.globalAlpha = 1;
+		this.context.fillStyle = '#000';
+		this.context.fillRect(0, 0, SCENE_WIDTH, SCENE_HEIGHT);
 		this.scene.draw(this.context);
 		if (this.contextHandler.dimDown) return;
 		if (!this.sceneStarted) this.startScene(this.nextScene);

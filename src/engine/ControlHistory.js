@@ -163,7 +163,8 @@ export class ControlHistory {
 
 	checkSequence = (time, move) => {
 		if (move.cursor === move.sequence.length) {
-			this.fighter.changeState(move.state, time);
+			if (this.fighter.startSpecial) this.fighter.startSpecial(move.state, time);
+			else this.fighter.changeState(move.state, time);
 			move.cursor = 0;
 		}
 	};

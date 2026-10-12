@@ -9,7 +9,15 @@ export const Control = {
 	LIGHT_KICK: 'lightKick',
 	MEDIUM_KICK: 'mediumKick',
 	HEAVY_KICK: 'heavyKick',
+	// one-touch super powers
+	SPECIAL_MELA: 'specialMela',
+	SPECIAL_PASTIZZI: 'specialPastizzi',
+	SPECIAL_UWEJJA: 'specialUwejja',
+	SPECIAL_RICOTTA: 'specialRicotta',
 };
+
+/** Fixed order of every control: used to pack a player's input into bits for online play. */
+export const CONTROL_ORDER = Object.values(Control);
 
 export const SpecialMovesControls = {
 	FORWARD: 'forward',
