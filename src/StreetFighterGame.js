@@ -31,6 +31,7 @@ export class StreetFighterGame {
 
 	startScene = (SceneClass) => {
 		this.contextHandler.startGlowUp();
+		this.scene?.destroy?.(); // let the old scene remove its listeners / hide its controls
 		this.scene = new SceneClass(this.changeScene);
 		this.sceneStarted = true;
 	};

@@ -7,6 +7,14 @@ import { FighterDirection } from '../constants/fighter.js';
 let aiEnabled = true;
 let aiHeld = new Set();
 export const setAIHeld = (s) => { aiHeld = s || new Set(); };
+// Input gate: closed during round intros / round ends so nobody (human or CPU) can act.
+let inputEnabled = true;
+export const setInputEnabled = (v) => {
+	inputEnabled = !!v;
+	if (!inputEnabled) releaseAllVirtual();
+};
+export const isInputEnabled = () => inputEnabled;
+
 export const setAIEnabled = (v) => { aiEnabled = !!v; };
 
 const mappedButtons = new Set(
@@ -80,6 +88,7 @@ const handleKeyDown = (event) => {
 };
 
 const handleKeyUp = (event) => {
+	if (!mappedKeys.includes(event.code)) return;
 	event.preventDefault();
 	if (heldKeys.has(event.code)) {
 		heldKeys.delete(event.code);
@@ -90,9 +99,32 @@ const handleKeyUp = (event) => {
 	}
 };
 
+/** Virtual (touch) keys are Player 1's keyboard codes, so they flow through the exact same code path. */
+export const pressVirtual = (code) => {
+	if (!mappedKeys.includes(code)) return;
+	heldKeys.add(code);
+};
+
+export const releaseVirtual = (code) => {
+	if (!heldKeys.has(code)) return;
+	heldKeys.delete(code);
+	pressedKeys.delete(code);
+	pressedKeysControlHistory[0].delete(code);
+	pressedKeysControlHistory[1].delete(code);
+};
+
+export const releaseAllVirtual = () => {
+	for (const code of [...heldKeys]) releaseVirtual(code);
+};
+
 export const registerKeyboardEvents = () => {
 	window.addEventListener('keydown', handleKeyDown);
 	window.addEventListener('keyup', handleKeyUp);
+	// never leave a key "stuck" when the tab / app loses focus
+	window.addEventListener('blur', releaseAllVirtual);
+	document.addEventListener('visibilitychange', () => {
+		if (document.hidden) releaseAllVirtual();
+	});
 };
 
 const handleGamepadConnected = (event) => {
@@ -144,7 +176,8 @@ export const registerGamepadEvents = () => {
 };
 
 export const isLeft = (id) => {
-	if (aiEnabled && id === 1 && aiHeld.has(Control.LEFT)) return true;
+	if (!inputEnabled) return false;
+	if (aiEnabled && id === 1) return aiHeld.has(Control.LEFT); // the CPU is the only source for P2
 	if (gamepadThumbstickAxes[id].x < -1 * CONTROLLER_DEADZONE) return true;
 	return (
 		heldKeys.has(controls[id].keyboard[Control.LEFT]) ||
@@ -153,7 +186,8 @@ export const isLeft = (id) => {
 };
 
 export const isUp = (id) => {
-	if (aiEnabled && id === 1 && aiHeld.has(Control.UP)) return true;
+	if (!inputEnabled) return false;
+	if (aiEnabled && id === 1) return aiHeld.has(Control.UP); // the CPU is the only source for P2
 	if (gamepadThumbstickAxes[id].y < -1 * CONTROLLER_DEADZONE) return true;
 
 	return (
@@ -163,7 +197,8 @@ export const isUp = (id) => {
 };
 
 export const isRight = (id) => {
-	if (aiEnabled && id === 1 && aiHeld.has(Control.RIGHT)) return true;
+	if (!inputEnabled) return false;
+	if (aiEnabled && id === 1) return aiHeld.has(Control.RIGHT); // the CPU is the only source for P2
 	if (gamepadThumbstickAxes[id].x > CONTROLLER_DEADZONE) return true;
 
 	return (
@@ -173,7 +208,8 @@ export const isRight = (id) => {
 };
 
 export const isDown = (id) => {
-	if (aiEnabled && id === 1 && aiHeld.has(Control.DOWN)) return true;
+	if (!inputEnabled) return false;
+	if (aiEnabled && id === 1) return aiHeld.has(Control.DOWN); // the CPU is the only source for P2
 	if (gamepadThumbstickAxes[id].y > CONTROLLER_DEADZONE) return true;
 
 	return (
@@ -194,6 +230,7 @@ export const isIdle = (id) =>
 	isUp(id) || isDown(id) || isLeft(id) || isRight(id);
 
 export const isKeyPressed = (id, code, forControlHistory) => {
+	if (!inputEnabled) return false;
 	if (forControlHistory) return isPressedControlHistory(id, code);
 
 	return (
@@ -203,27 +240,33 @@ export const isKeyPressed = (id, code, forControlHistory) => {
 };
 
 export const isLightPunch = (id, forControlHistory = false) => {
-	if (aiEnabled && id === 1 && aiHeld.has(Control.LIGHT_PUNCH)) return true;
+	if (!inputEnabled) return false;
+	if (aiEnabled && id === 1) return aiHeld.has(Control.LIGHT_PUNCH); // the CPU is the only source for P2
 	return isKeyPressed(id, Control.LIGHT_PUNCH, forControlHistory);
 };
 export const isMediumPunch = (id, forControlHistory = false) => {
-	if (aiEnabled && id === 1 && aiHeld.has(Control.MEDIUM_PUNCH)) return true;
+	if (!inputEnabled) return false;
+	if (aiEnabled && id === 1) return aiHeld.has(Control.MEDIUM_PUNCH); // the CPU is the only source for P2
 	return isKeyPressed(id, Control.MEDIUM_PUNCH, forControlHistory);
 };
 export const isHeavyPunch = (id, forControlHistory = false) => {
-	if (aiEnabled && id === 1 && aiHeld.has(Control.HEAVY_PUNCH)) return true;
+	if (!inputEnabled) return false;
+	if (aiEnabled && id === 1) return aiHeld.has(Control.HEAVY_PUNCH); // the CPU is the only source for P2
 	return isKeyPressed(id, Control.HEAVY_PUNCH, forControlHistory);
 };
 
 export const isLightKick = (id, forControlHistory = false) => {
-	if (aiEnabled && id === 1 && aiHeld.has(Control.LIGHT_KICK)) return true;
+	if (!inputEnabled) return false;
+	if (aiEnabled && id === 1) return aiHeld.has(Control.LIGHT_KICK); // the CPU is the only source for P2
 	return isKeyPressed(id, Control.LIGHT_KICK, forControlHistory);
 };
 export const isMediumKick = (id, forControlHistory = false) => {
-	if (aiEnabled && id === 1 && aiHeld.has(Control.MEDIUM_KICK)) return true;
+	if (!inputEnabled) return false;
+	if (aiEnabled && id === 1) return aiHeld.has(Control.MEDIUM_KICK); // the CPU is the only source for P2
 	return isKeyPressed(id, Control.MEDIUM_KICK, forControlHistory);
 };
 export const isHeavyKick = (id, forControlHistory = false) => {
-	if (aiEnabled && id === 1 && aiHeld.has(Control.HEAVY_KICK)) return true;
+	if (!inputEnabled) return false;
+	if (aiEnabled && id === 1) return aiHeld.has(Control.HEAVY_KICK); // the CPU is the only source for P2
 	return isKeyPressed(id, Control.HEAVY_KICK, forControlHistory);
 };

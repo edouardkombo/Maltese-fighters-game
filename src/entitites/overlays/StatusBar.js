@@ -19,6 +19,8 @@ import { drawFrame } from '../../utils/context.js';
 export class StatusBar {
 	time = BATTLE_TIME;
 	timeTimer = 0;
+	paused = true; // the clock only runs during the fight phase
+	timeEnded = false;
 
 	timeFlashTimer = 0;
 	useFlashFrames = false;
@@ -225,7 +227,14 @@ export class StatusBar {
 		context.textAlign = 'left';
 	}
 
+	/** Start the round clock (called when the round intro finishes). */
+	resume(time) {
+		this.paused = false;
+		this.timeTimer = time.previous;
+	}
+
 	updateTime(time) {
+		if (this.paused) return;
 		if (time.previous > this.timeTimer + TIME_DELAY) {
 			this.time -= 1;
 			this.timeTimer = time.previous;
@@ -239,7 +248,10 @@ export class StatusBar {
 			this.timeFlashTimer = time.previous;
 			this.useFlashFrames = !this.useFlashFrames;
 		}
-		if (this.time === -2) this.onTimeEnd(time);
+		if (this.time <= -1 && !this.timeEnded) {
+			this.timeEnded = true;
+			this.onTimeEnd(time);
+		}
 	}
 
 	update(time) {
@@ -269,10 +281,10 @@ export class StatusBar {
 		this.drawScoreLabel(context, 'P1', 4);
 		this.drawScore(context, gameState.fighters[0].score, 45);
 
-		this.drawScoreLabel(context, 'May', 133);
-		this.drawScore(context, 50000, 177);
+		this.drawScoreLabel(context, 'STAGE', 125);
+		this.drawScoreLabel(context, String(gameState.session.stage + 1), 189);
 
-		this.drawScoreLabel(context, 'P2', 269);
+		this.drawScoreLabel(context, 'CPU', 257);
 		this.drawScore(context, gameState.fighters[1].score, 309);
 	}
 
